@@ -62,3 +62,7 @@ docs/
 ## 隐私
 
 只申请 `downloads`、`offscreen`、`storage` 权限，以及 `x.com`、`twitter.com`、`video.twimg.com` 的访问权限。所有转换都在浏览器本地完成，不上传任何数据。
+
+## 许可证
+
+[MIT](LICENSE)。若将来接入 gifski 高质量编码器（AGPL-3.0，见路线图 M3），分发时需另行评估许可证兼容性。
