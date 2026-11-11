@@ -21,6 +21,16 @@ Chrome MV3 插件：把 X 上的 GIF（实为 MP4）在本地转成 .gif 下载�
 
 ## 流程
 
-- 在 `feat/m1-xx` 之类的分支开发，完成一个 ROADMAP 任务就验证并提交
+- 每个 ROADMAP 任务：从 main 切 `feat/` 分支 → 先出技术方案并评审 → 开发 → `pnpm check` + `pnpm build` + 按「完成标准」手动验收 → 代码审查修到无阻塞问题 → 勾选 ROADMAP、更新 CHANGELOG、方案变动追加到 TECH-DESIGN「决策记录」→ 提交推送、开 PR → 问用户是否合并（用户手动合并，合并后切回 main 拉取并清理本地分支）
 - commit message 用简体中文多行：做了什么 / 如何验证 / 如何回滚
-- 完成任务后勾选 ROADMAP、更新 CHANGELOG；方案变动同步 TECH-DESIGN 的「决策记录」
+- 仓库公开：推送前确认没有本机路径、内网地址、密钥
+
+## 坑与注意事项
+
+- `.npmrc` 固定 npm 官方源，不要改成其他源；锁文件按官方源生成
+- Biome 也会格式化 Markdown（含表格），改文档后跑 `pnpm lint:fix`
+- `mp4box`、`gifenc` 已声明但 M1-2 ~ M1-4 才用，不是冗余依赖
+- WXT 的 shadow 宿主带 `all: initial !important`：宿主自身的布局样式必须写在 shadow 样式表的 `:host { … !important }` 里，写在宿主内联样式上无效
+- x.com 未启用 Trusted Types，content script 可用 `innerHTML` 写静态 SVG
+- X 的 DOM（2026-11-11 实测，详见 TECH-DESIGN 风险 R2 与决策记录）：引用卡片是 article 内 `div[role="link"]`；操作栏是含 `[data-testid="reply"]` 的 `[role="group"]`；大图弹窗 `[role="dialog"][aria-modal="true"]` 的 GIF 不在任何 article 里，且弹窗最外层还有一个包住一切的 group，找操作栏时要排除含 article 的 group；外层推文「复用」别人的 GIF 时它在引用卡片外，算外层自己的
+- 手动验收需要已登录 X 的 Chrome：加载 `.output/chrome-mv3`，每次重新构建后在 `chrome://extensions` 点重新加载并刷新 x.com。找样例：搜索 `gif filter:media` / `gif filter:quote`（Latest），推文地址后加 `/video/1` 打开大图弹窗
