@@ -1,0 +1,64 @@
+# X GIF Saver
+
+一键把 X（Twitter）上的 GIF 保存成真正的 `.gif` 文件，方便当表情包用。
+
+X 会把上传的 GIF 转成 MP4 播放，网页上没法直接另存为 GIF。这个 Chrome 插件在推文操作栏加一个「存 GIF」按钮，点一下就在本地把 MP4 转回 GIF 并下载，不经过任何服务器。
+
+> 当前状态：**项目骨架**（M0）。转换流水线和按钮正在开发，进度见 [路线图](docs/ROADMAP.md)。
+
+## 功能
+
+- 只在带 GIF 的推文上显示按钮，引用推文里的 GIF 不会被误下
+- 本地转换：WebCodecs 精确逐帧解码，全局调色板 + 有序抖动，帧时长与原视频一致
+- 转换进度、取消、失败重试
+- 预设：原画 / 均衡 / 表情包，可自定义尺寸、帧率、颜色数、目标体积（M2）
+- 文件名模板与保存子目录（M2）
+
+## 安装（开发版）
+
+需要 Node.js 22+（WXT 0.21 的要求）和 pnpm。项目根目录的 `.npmrc` 已固定使用 npm 官方源，不受全局源配置影响。
+
+```bash
+pnpm install
+```
+
+```bash
+pnpm build
+```
+
+打开 `chrome://extensions`，开启「开发者模式」，点「加载已解压的扩展程序」，选择 `.output/chrome-mv3` 目录。
+
+## 开发
+
+| 命令                          | 作用                                           |
+| ----------------------------- | ---------------------------------------------- |
+| `pnpm dev`                    | 启动开发模式，自动打开带插件的 Chrome 并热更新 |
+| `pnpm build`                  | 生产构建到 `.output/chrome-mv3`                |
+| `pnpm zip`                    | 打包 zip                                       |
+| `pnpm compile`                | 生成 WXT 类型并做 TypeScript 类型检查          |
+| `pnpm test`                   | 单元测试（Vitest）                             |
+| `pnpm lint` / `pnpm lint:fix` | Biome 检查 / 自动修复                          |
+| `pnpm check`                  | 类型检查 + lint + 测试，提交前必须通过         |
+
+## 目录
+
+```
+src/
+  adapters/      站点适配（识别 GIF、作者、推文 ID）
+  core/          类型、消息协议、设置、文件名
+  pipeline/      转换流水线（Worker 内运行）与编码器
+  entrypoints/   background / content script / offscreen / 设置页
+docs/
+  TECH-DESIGN.md 技术方案
+  ROADMAP.md     路线图
+```
+
+## 文档
+
+- [技术方案](docs/TECH-DESIGN.md)：架构、流水线、设置结构、权限、风险、决策记录
+- [路线图](docs/ROADMAP.md)：里程碑与任务完成标准
+- [CHANGELOG](CHANGELOG.md)
+
+## 隐私
+
+只申请 `downloads`、`offscreen`、`storage` 权限，以及 `x.com`、`twitter.com`、`video.twimg.com` 的访问权限。所有转换都在浏览器本地完成，不上传任何数据。
