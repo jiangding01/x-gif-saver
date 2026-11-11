@@ -1,0 +1,39 @@
+# 持续集成：每个 PR 和推到 main 的提交都跑一遍本地同款验证（类型检查 + Biome + Vitest + 构建）。
+# Action 按 commit SHA 固定（公开仓库防 tag 被篡改），注释里写对应版本；升级时同时改 SHA 和注释。
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # 与本地开发保持一致：pnpm 12.16.1、Node 24
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 12.16.1
+          cache: true
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+
+      # 锁文件与 package.json 不一致时直接失败，不在 CI 里偷偷改锁文件
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm check
+
+      - run: pnpm build
