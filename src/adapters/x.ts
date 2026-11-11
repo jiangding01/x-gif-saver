@@ -14,8 +14,20 @@ const GIF_POSTER_RE =
 const STATUS_HREF_RE = /^\/([A-Za-z0-9_]{1,15})\/status\/(\d+)(?:[/?#]|$)/;
 
 export const TWEET_SELECTOR = 'article[data-testid="tweet"]';
-/** 推文底部操作栏（回复/转发/点赞/书签所在的那一排） */
-export const ACTION_BAR_SELECTOR = '[role="group"]';
+/** 推文底部操作栏（回复/转发/点赞/书签所在的那一排），用「含回复按钮」与其他 group 区分 */
+const ACTION_BAR_SELECTOR = '[role="group"]';
+const REPLY_SELECTOR = '[data-testid="reply"]';
+/** 被引用推文（quote tweet）的卡片，2026-11-11 实测（TECH-DESIGN 风险 R2） */
+const QUOTE_SELECTOR = 'div[role="link"]';
+/** 大图浏览弹窗 */
+const MODAL_SELECTOR = '[role="dialog"][aria-modal="true"]';
+
+/** 一个可挂按钮的位置：container 用于去重，actionBar 是按钮挂载点 */
+export type GifTarget = {
+  container: Element;
+  actionBar: Element;
+  sources: GifSource[];
+};
 
 export const mp4UrlFor = (mediaId: string): string =>
   `https://video.twimg.com/tweet_video/${mediaId}.mp4`;
@@ -31,14 +43,31 @@ export const parseStatusHref = (href: string): { author: string; tweetId: string
 };
 
 /**
- * 被引用推文（quote tweet）的容器。它和外层推文在同一个 <article> 里，必须排除，
+ * 被引用推文（quote tweet）和外层推文在同一个 <article> 里，必须排除，
  * 否则外层推文的按钮会下载到引用推文的 GIF。
- *
- * 待 M1 用真实 DOM 核实：目前假设引用卡片是 article 内部、带 role="link" 的 div。
+ * 注意：外层推文「复用」别人的 GIF（带来源标注）时，video 在引用卡片之外，算外层自己的。
  */
 const isInsideQuote = (el: Element, article: Element): boolean => {
-  const quote = el.closest('div[role="link"]');
+  const quote = el.closest(QUOTE_SELECTOR);
   return quote !== null && article.contains(quote);
+};
+
+const isActionBar = (el: Element): boolean => el.querySelector(REPLY_SELECTOR) !== null;
+
+/** GIF 媒体去重后转成 GifSource，按 DOM 顺序 */
+const toSources = (
+  videos: Iterable<HTMLVideoElement>,
+  meta: { author: string; tweetId: string },
+): GifSource[] => {
+  const seen = new Set<string>();
+  const result: GifSource[] = [];
+  for (const video of videos) {
+    const mediaId = gifMediaIdFrom(video.getAttribute('src'), video.getAttribute('poster'));
+    if (!mediaId || seen.has(mediaId)) continue;
+    seen.add(mediaId);
+    result.push({ mediaId, mp4Url: mp4UrlFor(mediaId), ...meta });
+  }
+  return result;
 };
 
 /** 取推文自己的作者与 ID：带 <time> 的那个 status 链接 */
@@ -56,14 +85,39 @@ export const tweetMetaOf = (article: Element): { author: string; tweetId: string
 export const findOwnGifs = (article: Element): GifSource[] => {
   const meta = tweetMetaOf(article);
   if (!meta) return [];
-  const seen = new Set<string>();
-  const result: GifSource[] = [];
-  for (const video of article.querySelectorAll('video')) {
-    if (isInsideQuote(video, article)) continue;
-    const mediaId = gifMediaIdFrom(video.getAttribute('src'), video.getAttribute('poster'));
-    if (!mediaId || seen.has(mediaId)) continue;
-    seen.add(mediaId);
-    result.push({ mediaId, mp4Url: mp4UrlFor(mediaId), ...meta });
-  }
-  return result;
+  const videos = [...article.querySelectorAll('video')].filter((v) => !isInsideQuote(v, article));
+  return toSources(videos, meta);
+};
+
+/** 推文自己的操作栏：不在引用卡片里、含回复按钮的 [role="group"] */
+export const findActionBar = (article: Element): Element | null =>
+  [...article.querySelectorAll(ACTION_BAR_SELECTOR)].find(
+    (g) => !isInsideQuote(g, article) && isActionBar(g),
+  ) ?? null;
+
+/** 时间线、详情页里的一条推文 → 挂载目标；不带 GIF 或找不到操作栏返回 null */
+export const tweetTarget = (article: Element): GifTarget | null => {
+  const sources = findOwnGifs(article);
+  if (sources.length === 0) return null;
+  const actionBar = findActionBar(article);
+  return actionBar ? { container: article, actionBar, sources } : null;
+};
+
+/**
+ * 大图浏览弹窗（/<author>/status/<id>/video/1）。实测 GIF 不在任何 article 里，
+ * 而是在弹窗的媒体区；底部有一排独立的操作栏。作者与推文 ID 只能从地址栏取。
+ */
+export const modalTarget = (doc: Document, pathname: string): GifTarget | null => {
+  const modal = doc.querySelector(MODAL_SELECTOR);
+  if (!modal) return null;
+  const meta = parseStatusHref(pathname);
+  if (!meta) return null;
+  const outsideArticle = (el: Element) => el.closest('article') === null;
+  const videos = [...modal.querySelectorAll('video')].filter(outsideArticle);
+  const sources = toSources(videos, meta);
+  if (sources.length === 0) return null;
+  const actionBar = [...modal.querySelectorAll(ACTION_BAR_SELECTOR)].find(
+    (g) => outsideArticle(g) && g.querySelector('article') === null && isActionBar(g),
+  );
+  return actionBar ? { container: modal, actionBar, sources } : null;
 };
