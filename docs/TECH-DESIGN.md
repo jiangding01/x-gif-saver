@@ -229,6 +229,8 @@ Settings = { defaultPresetId, presets: Preset[], filenameTemplate, subfolder }
 
 **回滚**：在 `chrome://extensions` 停用或移除即可；不涉及服务端和数据迁移。设置带版本号，降级时忽略不认识的字段。
 
+**持续集成**（`.github/workflows/ci.yml`）：每个 PR 和推到 main 的提交，在 GitHub Actions 上用与本地相同的 pnpm 12.16.1 + Node 24 跑 `pnpm install --frozen-lockfile`、`pnpm check`、`pnpm build`。手动验收项无法自动化，仍按上面的清单人工过。
+
 ## 10. 技术选型
 
 | 选择                        | 理由                                                                               |

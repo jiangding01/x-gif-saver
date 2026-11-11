@@ -12,3 +12,4 @@
 - 技术方案、路线图、README 文档
 - MIT 许可证
 - 项目级 `.npmrc` 固定使用 npm 官方源，锁文件按官方源生成
+- GitHub Actions 持续集成：PR 与 main 上自动运行 `pnpm check` 和 `pnpm build`

@@ -7,6 +7,7 @@ Chrome MV3 插件：把 X 上的 GIF（实为 MP4）在本地转成 .gif 下载�
 - `pnpm check`：类型检查 + Biome + Vitest，**每次改完代码必须通过**
 - `pnpm build`：构建到 `.output/chrome-mv3`，在 `chrome://extensions` 加载已解压的扩展
 - `pnpm dev`：开发模式（自动开 Chrome + 热更新）
+- CI（`.github/workflows/ci.yml`）在 PR 和 main 上跑 `pnpm install --frozen-lockfile` + `pnpm check` + `pnpm build`；升级 Action 时 SHA 和版本注释一起改
 - `.wxt/` 缺失导致类型报错时：`pnpm wxt prepare`（pnpm 12 下 postinstall 不一定执行，`pnpm compile` 已内置 prepare）
 
 ## 代码约定
