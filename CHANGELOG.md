@@ -6,6 +6,8 @@
 
 ### 新增
 
+- 推文操作栏「存 GIF」按钮：时间线、详情页、大图浏览弹窗中，推文自己带 GIF 时出现；引用推文里的 GIF 不算；样式跟随 X 原生按钮，与 Media Harvest 共存（转换流水线尚未实现，点击暂不产生下载）
+- 开发依赖 happy-dom，用于 DOM 识别逻辑的单元测试
 - 项目骨架：WXT + TypeScript + React（设置页）+ Biome + Vitest
 - 消息协议、background 调度与下载、offscreen 任务队列与 Worker、带版本的设置存储
 - GIF 媒体地址解析、文件名模板渲染、GIF 帧延迟计算，均有单元测试
