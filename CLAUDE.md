@@ -23,6 +23,7 @@ Chrome MV3 插件：把 X 上的 GIF（实为 MP4）在本地转成 .gif 下载�
 - 新增编码器/站点按 TECH-DESIGN §4.2 的扩展点做，不改流水线主流程
 - 下载路径一律由 `core/filename.ts` 的 `renderFilename` 生成，设置页示例也调用它，保证所见即所得；清洗规则只改这一处
 - 新增权限、配置项、用户可见功能前先问用户；GIF 浮层按钮已明确不做
+- 用户可见文案一律放 `src/locales/en.json` 与 `zh_CN.json`（两份同时加，键名一致由单测检查），代码里用 `import { i18n } from '#i18n'`；Worker 与 offscreen 里没有 `chrome.i18n`，失败原因用 `core/errors.ts` 的错误码传出去；单测里的 `#i18n` 读英文文案（`src/testing/i18n.ts`），断言按英文写
 
 ## 流程
 
@@ -34,6 +35,8 @@ Chrome MV3 插件：把 X 上的 GIF（实为 MP4）在本地转成 .gif 下载�
 ## 坑与注意事项
 
 - `.npmrc` 固定 npm 官方源，不要改成其他源；锁文件按官方源生成
+- 文案格式：不能出现 `$1$2` 这类写法（Chrome 读成具名占位符 `$1$`，整个扩展加载失败，只在浏览器日志里报 `Variable $1$ used but not defined`）；`{名字}` 会被 `@wxt-dev/i18n` 当具名参数，字面量 `{author}` 要用 `$1` 传入
+- 本机 macOS 上 e2e 的 `--lang` 不生效（跟随系统语言），中英两遍要到 CI（Linux）才真正分开；断言文案要用 `chrome.i18n.getMessage` 取，不要写死
 - Biome 也会格式化 Markdown（含表格），改文档后跑 `pnpm lint:fix`
 - `mp4box`、`gifenc` 已声明但 M1-2 ~ M1-4 才用，不是冗余依赖
 - WXT 的 shadow 宿主带 `all: initial !important`：宿主自身的布局样式必须写在 shadow 样式表的 `:host { … !important }` 里，写在宿主内联样式上无效

@@ -3,12 +3,13 @@
 // 示例用与 background 相同的 renderFilename 渲染，所见即实际下载路径。
 
 import { Fragment, useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from 'react';
+import { i18n } from '#i18n';
 import { DEFAULT_SETTINGS } from '../../core/defaults';
 import {
-  FILENAME_VAR_LABELS,
   FILENAME_VARS,
   type FilenameFields,
   type FilenameVar,
+  filenameVarLabel,
   hasReplacedChars,
   renderFilename,
   SUBFOLDER_MAX_LENGTH,
@@ -139,16 +140,15 @@ export const FilenameSection = ({ settings, onSaved, onError }: Props) => {
 
   const templateHints: string[] = [];
   if (hasReplacedChars(draft.filenameTemplate, false))
-    templateHints.push('/ : * ? 等字符不能用在文件名里，会换成 _');
-  if (!draft.filenameTemplate.includes('{tweetId}'))
-    templateHints.push('不含推文 ID 时可能重名，浏览器会在后面加 (1)、(2)');
+    templateHints.push(i18n.t('save.fileReplaced'));
+  if (!draft.filenameTemplate.includes('{tweetId}')) templateHints.push(i18n.t('save.noTweetId'));
 
   return (
     <section className="section" aria-labelledby={`${uid}-title`}>
       <div className="section-head">
         <div>
-          <h2 id={`${uid}-title`}>保存位置</h2>
-          <p className="section-desc">GIF 存到浏览器的下载目录里，改动立即生效。</p>
+          <h2 id={`${uid}-title`}>{i18n.t('save.title')}</h2>
+          <p className="section-desc">{i18n.t('save.desc')}</p>
         </div>
         {isDefault ? null : (
           <button
@@ -164,7 +164,7 @@ export const FilenameSection = ({ settings, onSaved, onError }: Props) => {
               )
             }
           >
-            恢复默认
+            {i18n.t('save.reset')}
           </button>
         )}
       </div>
@@ -172,7 +172,7 @@ export const FilenameSection = ({ settings, onSaved, onError }: Props) => {
       <div className="filename">
         <div className="field">
           <label className="field-label" htmlFor={`${uid}-folder`}>
-            文件夹
+            {i18n.t('save.folder')}
           </label>
           <input
             id={`${uid}-folder`}
@@ -180,7 +180,7 @@ export const FilenameSection = ({ settings, onSaved, onError }: Props) => {
             autoComplete="off"
             spellCheck={false}
             maxLength={SUBFOLDER_MAX_LENGTH}
-            placeholder="留空则直接存到下载目录"
+            placeholder={i18n.t('save.folderPlaceholder')}
             value={draft.subfolder}
             onChange={(e) => change({ subfolder: e.target.value }, false)}
             onBlur={flush}
@@ -194,14 +194,14 @@ export const FilenameSection = ({ settings, onSaved, onError }: Props) => {
           ) : null}
           <p className="field-hint" id={`${uid}-folder-hint`}>
             {hasReplacedChars(draft.subfolder, true)
-              ? ': * ? 等字符不能用在文件夹名里，会换成 _'
-              : '用 / 分多层，也能用变量，如 X-GIF/{author} 按作者分文件夹；只能存在下载目录里'}
+              ? i18n.t('save.folderReplaced')
+              : i18n.t('save.folderHint', ['X-GIF/{author}'])}
           </p>
         </div>
 
         <div className="field">
           <label className="field-label" htmlFor={`${uid}-template`}>
-            文件名
+            {i18n.t('save.fileName')}
           </label>
           <div className="affix-input">
             <input
@@ -222,9 +222,9 @@ export const FilenameSection = ({ settings, onSaved, onError }: Props) => {
             </span>
           </div>
           <fieldset className="chips">
-            <legend className="sr-only">插入变量</legend>
+            <legend className="sr-only">{i18n.t('save.insertVariable')}</legend>
             <span className="chips-label" aria-hidden="true">
-              插入
+              {i18n.t('save.insert')}
             </span>
             {FILENAME_VARS.map((v) => (
               <button
@@ -235,7 +235,7 @@ export const FilenameSection = ({ settings, onSaved, onError }: Props) => {
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => insertVar(v)}
               >
-                {FILENAME_VAR_LABELS[v]}
+                {filenameVarLabel(v)}
               </button>
             ))}
           </fieldset>
@@ -246,17 +246,17 @@ export const FilenameSection = ({ settings, onSaved, onError }: Props) => {
           ) : null}
           <p className="field-hint" id={`${uid}-template-hint`}>
             {templateHints.length > 0
-              ? templateHints.join('；')
-              : '一条推文有多个 GIF 时依次加 _1、_2；日期是下载当天'}
+              ? templateHints.join(i18n.t('save.hintSeparator'))
+              : i18n.t('save.fileHint')}
           </p>
         </div>
 
         <div className="path-preview">
           <span className="path-label">
-            {invalid ? '示例（标红的修改没有保存，下载仍按这个来）' : '示例'}
+            {invalid ? i18n.t('save.exampleInvalid') : i18n.t('save.example')}
           </span>
           <p className="path">
-            <span className="path-dir">下载/</span>
+            <span className="path-dir">{i18n.t('save.downloads')}</span>
             {/* 每层之间留换行机会：窄屏优先在 / 后面换行，而不是把文件名拆开 */}
             {parts.map((p, i) => (
               // biome-ignore lint/suspicious/noArrayIndexKey: 路径层级只按位置区分，同名层级合法

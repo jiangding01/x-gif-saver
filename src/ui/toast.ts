@@ -1,6 +1,8 @@
 // 右键菜单兜底（M2-5）的进度提示：只在这条推文上没有「存 GIF」按钮时出现（按钮注入失效、
 // 引用卡片里的 GIF），否则状态由按钮自己显示。样式模仿 X 的底部蓝色提示条，放在独立的 Shadow DOM 里。
 
+import { X_FONT } from './font';
+
 const STYLE = `
   :host { all: initial; }
   .toast {
@@ -8,7 +10,7 @@ const STYLE = `
     max-width: min(90vw, 480px); padding: 12px 16px; border-radius: 4px;
     background: rgb(29, 155, 240); color: #fff;
     box-shadow: rgba(101, 119, 134, 0.2) 0 0 15px, rgba(101, 119, 134, 0.15) 0 0 3px 1px;
-    font: 400 15px/20px -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+    font: 400 15px/20px ${X_FONT};
     transform: translateX(-50%); opacity: 1;
     transition: opacity 0.2s ease-out;
   }

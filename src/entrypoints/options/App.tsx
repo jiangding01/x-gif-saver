@@ -1,6 +1,7 @@
 // 设置页（ROADMAP M2-1）：管理 GIF 转换预设。改动即保存，删除可撤销，多标签页实时同步。
 
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
+import { i18n } from '#i18n';
 import { browser } from '#imports';
 import {
   addPreset,
@@ -8,6 +9,7 @@ import {
   deletePreset,
   MAX_CUSTOM_PRESETS,
   nextCustomName,
+  presetName,
   restorePreset,
   setDefault,
 } from '../../core/presets';
@@ -150,16 +152,14 @@ export const App = () => {
           <Mark />
           <span lang="en">X GIF Saver</span>
         </div>
-        <h1>设置</h1>
+        <h1>{i18n.t('options.heading')}</h1>
       </header>
 
       <section className="section" aria-labelledby="presets-title">
         <div className="section-head">
           <div>
-            <h2 id="presets-title">转换预设</h2>
-            <p className="section-desc">
-              点推文里的 GIF 按钮时，用选中的预设转换。改动立即生效，无需刷新 X。
-            </p>
+            <h2 id="presets-title">{i18n.t('options.presetsTitle')}</h2>
+            <p className="section-desc">{i18n.t('options.presetsDesc')}</p>
           </div>
           <button
             ref={newButton}
@@ -170,12 +170,12 @@ export const App = () => {
             aria-describedby={atLimit ? 'limit-hint' : undefined}
           >
             <PlusIcon />
-            新建预设
+            {i18n.t('options.newPreset')}
           </button>
         </div>
         {atLimit ? (
           <p className="limit-hint" id="limit-hint">
-            自定义预设最多 {MAX_CUSTOM_PRESETS} 个，删除一个后才能再新建
+            {i18n.t('options.limitHint', [String(MAX_CUSTOM_PRESETS)])}
           </p>
         ) : null}
 
@@ -233,27 +233,29 @@ export const App = () => {
       />
 
       <footer className="colophon">
-        <span>版本 {version}</span>
+        <span>{i18n.t('options.version', [version])}</span>
         <span aria-hidden="true">·</span>
-        <span>所有转换都在本机完成，不上传任何数据</span>
+        <span>{i18n.t('options.local')}</span>
       </footer>
 
       <div className="toast-region">
         {notice?.kind === 'error' ? (
           <div className="toast toast-error" role="alert">
-            <span>写入设置失败：{notice.message}</span>
+            <span>{i18n.t('options.saveFailed', [notice.message])}</span>
             <button type="button" className="toast-action" onClick={() => setNotice(null)}>
-              知道了
+              {i18n.t('options.gotIt')}
             </button>
           </div>
         ) : null}
         <div role="status" aria-live="polite">
-          {notice?.kind === 'saved' ? <div className="toast toast-quiet">已保存</div> : null}
+          {notice?.kind === 'saved' ? (
+            <div className="toast toast-quiet">{i18n.t('options.saved')}</div>
+          ) : null}
           {notice?.kind === 'deleted' ? (
             <div className="toast">
-              <span>已删除「{notice.preset.name}」</span>
+              <span>{i18n.t('options.deleted', [presetName(notice.preset)])}</span>
               <button type="button" className="toast-action" onClick={() => onUndo(notice)}>
-                撤销
+                {i18n.t('options.undo')}
               </button>
             </div>
           ) : null}

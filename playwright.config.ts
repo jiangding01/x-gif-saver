@@ -9,4 +9,7 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   workers: 1,
   reporter: process.env.CI ? [['list'], ['github']] : 'list',
+  // 每种界面语言各跑一遍（项目名即 --lang 的值）。只有 Linux（CI）认 --lang；
+  // macOS / Windows 本机跟随系统语言，断言按扩展实际生效的文案取，照样能过
+  projects: [{ name: 'en-US' }, { name: 'zh-CN' }],
 });

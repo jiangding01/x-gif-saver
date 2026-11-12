@@ -1,3 +1,4 @@
+import { i18n } from '#i18n';
 import type { GifSource, Settings } from './types';
 
 // 文件名模板渲染与校验（C6）。chrome.downloads 的 filename 是相对下载目录的路径，
@@ -7,10 +8,16 @@ import type { GifSource, Settings } from './types';
 /** 模板里可用的变量，顺序即设置页「插入」按钮的顺序 */
 export const FILENAME_VARS = ['tweetId', 'author', 'date'] as const;
 export type FilenameVar = (typeof FILENAME_VARS)[number];
-export const FILENAME_VAR_LABELS: Record<FilenameVar, string> = {
-  tweetId: '推文 ID',
-  author: '作者',
-  date: '日期',
+/** 设置页「插入」按钮上的变量名（当前语言） */
+export const filenameVarLabel = (v: FilenameVar): string => {
+  switch (v) {
+    case 'tweetId':
+      return i18n.t('filename.tweetId');
+    case 'author':
+      return i18n.t('filename.author');
+    case 'date':
+      return i18n.t('filename.date');
+  }
 };
 
 export const TEMPLATE_MAX_LENGTH = 100;
@@ -90,19 +97,22 @@ const unknownVars = (text: string): string[] => [
 ];
 
 const unknownMessage = (names: string[]): string =>
-  `不认识 ${names.map((n) => `{${n}}`).join(' ')}，可用的变量：${FILENAME_VARS.map((v) => `{${v}}`).join(' ')}`;
+  i18n.t('filename.unknownVars', [
+    names.map((n) => `{${n}}`).join(' '),
+    FILENAME_VARS.map((v) => `{${v}}`).join(' '),
+  ]);
 
 /** 不合法的值不写入存储 */
 export const validateFilename = (f: FilenameFields): FilenameErrors => {
   const errors: FilenameErrors = {};
   const badInTemplate = unknownVars(f.filenameTemplate);
-  if (f.filenameTemplate.trim() === '') errors.filenameTemplate = '文件名不能为空';
+  if (f.filenameTemplate.trim() === '') errors.filenameTemplate = i18n.t('filename.empty');
   else if (f.filenameTemplate.length > TEMPLATE_MAX_LENGTH)
-    errors.filenameTemplate = `最多 ${TEMPLATE_MAX_LENGTH} 个字符`;
+    errors.filenameTemplate = i18n.t('filename.tooLong', [String(TEMPLATE_MAX_LENGTH)]);
   else if (badInTemplate.length > 0) errors.filenameTemplate = unknownMessage(badInTemplate);
   const badInFolder = unknownVars(f.subfolder);
   if (f.subfolder.length > SUBFOLDER_MAX_LENGTH)
-    errors.subfolder = `最多 ${SUBFOLDER_MAX_LENGTH} 个字符`;
+    errors.subfolder = i18n.t('filename.tooLong', [String(SUBFOLDER_MAX_LENGTH)]);
   else if (badInFolder.length > 0) errors.subfolder = unknownMessage(badInFolder);
   return errors;
 };

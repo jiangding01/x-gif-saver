@@ -1,9 +1,11 @@
 // 按钮状态（ROADMAP M1-5）：一次点击 = 一个任务，可能包含同一推文的多个 GIF。
 // 纯函数：消息 → 任务状态 → 按钮视图，content script 只负责路由与定时器，便于单测。
 
+import { i18n } from '#i18n';
 import type { ToContent } from '../core/messages';
 import { toMB } from '../core/presets';
 import type { FinalParams, GifSource, JobStage } from '../core/types';
+import { describeError } from './errorText';
 
 export type JobPhase = 'queued' | 'running' | 'done' | 'error';
 
@@ -13,11 +15,12 @@ export type JobState = {
   ratio: number;
   /** 最近一次进度所在阶段：降级重编码（shrinking）时提示文案不同 */
   stage?: JobStage;
+  /** 失败原因，收到消息时已翻译成当前语言 */
   message?: string;
   params?: FinalParams;
 };
 
-/** 右键菜单选的非默认预设；未设置表示用默认预设 */
+/** 右键菜单选的非默认预设；未设置表示用默认预设。name 是选中时的显示名（内置预设已翻译） */
 export type PickedPreset = { id: string; name: string };
 
 export type Task = {
@@ -35,11 +38,29 @@ export type ButtonView = {
   kind: ButtonKind;
   /** progress 时的 0–1 */
   ratio: number;
-  /** 悬停提示与 aria-label */
+  /** 按钮的悬停提示：状态 + 可执行的操作（点击取消 / 重试） */
   label: string;
+  /** 只有状态、不带操作提示，给没有按钮时的底部提示条用 */
+  status: string;
+  /** aria-label：转换中不带百分比，免得读屏每 1% 朗读一次 */
+  aria: string;
 };
 
-export const IDLE_VIEW: ButtonView = { kind: 'idle', ratio: 0, label: '保存为 GIF，右键可选预设' };
+const makeView = (
+  kind: ButtonKind,
+  ratio: number,
+  status: string,
+  label = status,
+  aria = label,
+) => ({
+  kind,
+  ratio,
+  status,
+  label,
+  aria,
+});
+
+export const idleView = (): ButtonView => makeView('idle', 0, i18n.t('button.idle'));
 
 /** 下载阶段在总进度里占的比例；解码与编码由编码器统一上报（两遍遍历，0–1 单调） */
 const FETCH_SHARE = 0.1;
@@ -100,15 +121,17 @@ export const applyMessage = (task: Task, msg: ToContent): Task => {
     case 'job:done':
       set(msg.mediaId, () => ({ phase: 'done', ratio: 1, params: msg.params }));
       break;
-    case 'job:error':
+    case 'job:error': {
+      const message = describeError(msg.error);
       if (msg.mediaId !== undefined) {
-        set(msg.mediaId, (prev) => ({ ...prev, phase: 'error', message: msg.message }));
+        set(msg.mediaId, (prev) => ({ ...prev, phase: 'error', message }));
       } else {
         for (const id of jobs.keys()) {
-          set(id, (prev) => ({ ...prev, phase: 'error', message: msg.message }));
+          set(id, (prev) => ({ ...prev, phase: 'error', message }));
         }
       }
       break;
+    }
   }
   return { ...task, jobs };
 };
@@ -133,56 +156,75 @@ export const formatBytes = (bytes: number): string =>
     ? `${Math.max(1, Math.round(bytes / 1024))}KB`
     : `${(bytes / 1024 / 1024).toFixed(1).replace(/\.0$/, '')}MB`;
 
-/** 目标体积的说明：没压下来要明确告诉用户；降级过要说明画质降低了 */
-const targetNote = (params: FinalParams[]): string => {
+/** 在 detail 后面加上目标体积的说明：没压下来要明确告诉用户；降级过要说明画质降低了 */
+const withTargetNote = (detail: string, params: FinalParams[]): string => {
   const targets = params.map((p) => p.target).filter((t) => t !== undefined);
   const [first] = targets;
-  if (!first) return '';
+  if (!first) return detail;
   // 按设置页填写的单位显示（0.1MB 不写成 102KB）
   const limit = `${toMB(first.limit)}MB`;
   const missed = targets.filter((t) => !t.met).length;
   if (missed > 0) {
     return params.length > 1
-      ? `（${missed} 个未能压到 ${limit} 以内）`
-      : `（未能压到 ${limit} 以内）`;
+      ? i18n.t('button.missedSome', [detail, String(missed), limit])
+      : i18n.t('button.missed', [detail, limit]);
   }
-  return targets.some((t) => t.degraded) ? `（已降低画质压到 ${limit} 以内）` : '';
+  return targets.some((t) => t.degraded) ? i18n.t('button.degraded', [detail, limit]) : detail;
 };
 
 const doneLabel = (jobs: JobState[], preset?: PickedPreset): string => {
   const params = jobs.map((j) => j.params).filter((p): p is FinalParams => p !== undefined);
   const total = formatBytes(params.reduce((sum, p) => sum + p.bytes, 0));
-  const saved = preset ? `已保存（${preset.name}）` : '已保存 ';
-  const note = targetNote(params);
   const [only] = params;
+  let detail: string;
   if (params.length === 1 && only) {
     // 降级过或没压下来时带上颜色数：最终参数与预设不同
     const colors =
-      only.target && (only.target.degraded || !only.target.met) ? ` · ${only.colors} 色` : '';
-    return `${saved}${total} · ${only.width}×${only.height} · ${only.fps}fps${colors}${note}`;
+      only.target && (only.target.degraded || !only.target.met)
+        ? ` · ${i18n.t('preset.colors', [String(only.colors)])}`
+        : '';
+    detail = `${total} · ${only.width}×${only.height} · ${only.fps}fps${colors}`;
+  } else {
+    detail = i18n.t('button.multiple', [String(jobs.length), total]);
   }
-  return `${saved}${jobs.length} 个 GIF · 共 ${total}${note}`;
+  detail = withTargetNote(detail, params);
+  return preset
+    ? i18n.t('button.savedWithPreset', [preset.name, detail])
+    : i18n.t('button.saved', [detail]);
 };
 
 export const viewOf = (task: Task | null): ButtonView => {
-  if (!task) return IDLE_VIEW;
+  if (!task) return idleView();
   const jobs = [...task.jobs.values()];
   if (jobs.every((j) => j.phase === 'done'))
-    return { kind: 'done', ratio: 1, label: doneLabel(jobs, task.preset) };
+    return makeView('done', 1, doneLabel(jobs, task.preset));
   if (isSettled(task)) {
     const failed = jobs.filter((j) => j.phase === 'error');
-    const reason = failed[0]?.message ?? '未知错误';
-    const prefix = jobs.length > 1 ? `${failed.length} 个 GIF 失败：` : '失败：';
-    return { kind: 'error', ratio: 0, label: `${prefix}${reason}，点击重试` };
+    const reason = failed[0]?.message ?? i18n.t('error.unknown');
+    const status =
+      jobs.length > 1
+        ? i18n.t('button.failedSome', [String(failed.length), String(jobs.length), reason])
+        : i18n.t('button.failed', [reason]);
+    return makeView('error', 0, status, i18n.t('button.clickToRetry', [status]));
   }
   if (jobs.every((j) => j.phase === 'queued')) {
-    return { kind: 'queued', ratio: 0, label: '排队中，点击取消' };
+    const status = i18n.t('button.queued');
+    return makeView('queued', 0, status, i18n.t('button.clickToCancel', [status]));
   }
   // 已结束的（完成或失败）都按 1 计入平均进度
   const ratio =
     jobs.reduce((sum, j) => sum + (j.phase === 'done' || j.phase === 'error' ? 1 : j.ratio), 0) /
     jobs.length;
   const shrinking = jobs.some((j) => j.phase === 'running' && j.stage === 'shrinking');
-  const doing = shrinking ? '超出体积上限，压缩中' : '转换中';
-  return { kind: 'progress', ratio, label: `${doing} ${Math.floor(ratio * 100)}%，点击取消` };
+  const percent = String(Math.floor(ratio * 100));
+  const status = shrinking
+    ? i18n.t('button.shrinking', [percent])
+    : i18n.t('button.converting', [percent]);
+  return makeView(
+    'progress',
+    ratio,
+    status,
+    i18n.t('button.clickToCancel', [status]),
+    i18n.t('button.clickToCancel', [i18n.t('button.busy')]),
+  );
 };

@@ -2,12 +2,14 @@
 // 行内编辑改动即保存，弹窗填完点「创建」才写入。
 
 import { type Ref, useId } from 'react';
+import { i18n } from '#i18n';
 import {
   FPS_CAP_RANGE,
   fromMB,
   MAX_SIDE_RANGE,
   NAME_MAX_LENGTH,
   type PresetErrors,
+  rangeOf,
   TARGET_MB_RANGE,
   toMB,
 } from '../../core/presets';
@@ -104,7 +106,7 @@ export const PresetForm = ({ draft, errors, showName, onChange, firstFieldRef }:
     isFirst: boolean,
     /** 允许一位小数（体积 MB）；否则只收整数 */
     decimal = false,
-    hint = `留空表示不限制，范围 ${range.min}–${range.max}`,
+    hint = i18n.t('form.rangeHint', rangeOf(range)),
   ) => (
     <div className="field">
       <label className="field-label" htmlFor={`${uid}-${field}`}>
@@ -127,7 +129,7 @@ export const PresetForm = ({ draft, errors, showName, onChange, firstFieldRef }:
         </span>
       </div>
       <fieldset className="chips">
-        <legend className="sr-only">{label}常用值</legend>
+        <legend className="sr-only">{i18n.t('form.commonValues', [label])}</legend>
         {choices.map((choice) => {
           const text = toText(choice);
           return (
@@ -138,7 +140,11 @@ export const PresetForm = ({ draft, errors, showName, onChange, firstFieldRef }:
               aria-pressed={draft[field] === text}
               onClick={() => onChange({ [field]: text }, 'pick')}
             >
-              {choice === null ? (decimal ? '不限' : '原始') : `${choice}${decimal ? 'MB' : ''}`}
+              {choice === null
+                ? decimal
+                  ? i18n.t('form.unlimited')
+                  : i18n.t('form.original')
+                : `${choice}${decimal ? 'MB' : ''}`}
             </button>
           );
         })}
@@ -158,7 +164,9 @@ export const PresetForm = ({ draft, errors, showName, onChange, firstFieldRef }:
           className="swatch swatch-large"
         />
         <p className="preview-caption">
-          {draft.colors} 色{draft.dither === 'bayer' ? ' · 抖动' : ''}
+          {draft.dither === 'bayer'
+            ? i18n.t('form.colorsDithered', [String(draft.colors)])
+            : i18n.t('preset.colors', [String(draft.colors)])}
         </p>
       </div>
 
@@ -166,7 +174,7 @@ export const PresetForm = ({ draft, errors, showName, onChange, firstFieldRef }:
         {showName ? (
           <div className="field">
             <label className="field-label" htmlFor={`${uid}-name`}>
-              名称
+              {i18n.t('form.name')}
             </label>
             <input
               id={`${uid}-name`}
@@ -184,28 +192,36 @@ export const PresetForm = ({ draft, errors, showName, onChange, firstFieldRef }:
 
         {numberField(
           'maxSide',
-          '最长边不超过',
+          i18n.t('form.maxSide'),
           'px',
-          '原始尺寸',
+          i18n.t('preset.originalSize'),
           SIZE_CHOICES,
           MAX_SIDE_RANGE,
           !showName,
         )}
-        {numberField('fpsCap', '帧率不超过', 'fps', '原帧率', FPS_CHOICES, FPS_CAP_RANGE, false)}
+        {numberField(
+          'fpsCap',
+          i18n.t('form.fps'),
+          'fps',
+          i18n.t('preset.originalFps'),
+          FPS_CHOICES,
+          FPS_CAP_RANGE,
+          false,
+        )}
         {numberField(
           'targetBytes',
-          '体积不超过',
+          i18n.t('form.size'),
           'MB',
-          '不限',
+          i18n.t('form.unlimited'),
           TARGET_CHOICES,
           TARGET_MB_RANGE,
           false,
           true,
-          `超出时依次降低颜色数、帧率、尺寸重新转换，最多 4 次；范围 ${TARGET_MB_RANGE.min}–${TARGET_MB_RANGE.max}`,
+          i18n.t('form.sizeHint', rangeOf(TARGET_MB_RANGE)),
         )}
 
         <fieldset className="field">
-          <legend className="field-label">颜色数</legend>
+          <legend className="field-label">{i18n.t('form.colors')}</legend>
           <div className="segmented">
             {COLOR_CHOICES.map((c) => (
               <label key={c} className="segment">
@@ -220,7 +236,7 @@ export const PresetForm = ({ draft, errors, showName, onChange, firstFieldRef }:
               </label>
             ))}
           </div>
-          <p className="field-hint">颜色越少，文件越小，渐变处越容易出现色块</p>
+          <p className="field-hint">{i18n.t('form.colorsHint')}</p>
         </fieldset>
 
         <div className="field field-inline">
@@ -235,8 +251,8 @@ export const PresetForm = ({ draft, errors, showName, onChange, firstFieldRef }:
             />
             <span className="switch-track" aria-hidden="true" />
             <span className="switch-text">
-              <span className="field-label">抖动</span>
-              <span className="field-hint">用细密网点模拟过渡色，渐变更平滑，体积略大</span>
+              <span className="field-label">{i18n.t('form.dither')}</span>
+              <span className="field-hint">{i18n.t('form.ditherHint')}</span>
             </span>
           </label>
         </div>

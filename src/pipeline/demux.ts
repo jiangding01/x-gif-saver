@@ -2,6 +2,7 @@
 // 解码器配置（avcC）和全部样本，交给 M1-3 的 VideoDecoder。纯函数，不依赖 DOM，可在 Worker 和 Node 里跑。
 
 import { createFile, DataStream, Endianness, MP4BoxBuffer, type Sample } from 'mp4box';
+import { type JobErrorCode, jobError, wrapError } from '../core/errors';
 
 export type DemuxedSample = {
   data: Uint8Array;
@@ -32,9 +33,9 @@ export const fetchMp4 = async (url: string, signal: AbortSignal): Promise<ArrayB
   } catch (err) {
     // 取消要原样抛出，Worker 据此判「已取消」
     if (signal.aborted) throw err;
-    throw new Error(`下载 GIF 视频失败：${err instanceof Error ? err.message : String(err)}`);
+    throw wrapError('fetchFailed', err);
   }
-  if (!res.ok) throw new Error(`下载 GIF 视频失败：HTTP ${res.status}`);
+  if (!res.ok) throw jobError('fetchFailed', `HTTP ${res.status}`);
   return res.arrayBuffer();
 };
 
@@ -58,19 +59,19 @@ export const demuxMp4 = (buffer: ArrayBuffer): Promise<Demuxed> =>
     // 用类型断言初始化：header 只在回调里赋值，避免 TS 把它收窄成 null
     let header = null as Omit<Demuxed, 'samples' | 'durationUs'> | null;
     let failed = false;
-    const fail = (message: string) => {
+    const fail = (code: JobErrorCode, detail?: string) => {
       failed = true;
-      reject(new Error(message));
+      reject(jobError(code, detail));
     };
 
-    file.onError = (_module: string, message: string) => fail(`视频解析失败：${message}`);
+    file.onError = (_module: string, message: string) => fail('parseFailed', message);
     file.onReady = (info) => {
       const track = info.videoTracks[0];
-      if (!track) return fail('不是有效的视频文件');
+      if (!track) return fail('invalidVideo');
       const entry = file.getTrackById(track.id)?.mdia?.minf?.stbl?.stsd?.entries?.[0] as
         | { avcC?: AvcCBox }
         | undefined;
-      if (!entry?.avcC) return fail(`不支持的视频编码：${track.codec}`);
+      if (!entry?.avcC) return fail('unsupportedCodec', track.codec);
       header = {
         codec: track.codec,
         width: track.video?.width ?? 0,
@@ -98,13 +99,13 @@ export const demuxMp4 = (buffer: ArrayBuffer): Promise<Demuxed> =>
       file.appendBuffer(MP4BoxBuffer.fromArrayBuffer(buffer, 0), true);
       file.flush();
     } catch (err) {
-      if (!failed) fail(`不是有效的视频文件：${err instanceof Error ? err.message : String(err)}`);
+      if (!failed) fail('invalidVideo', err instanceof Error ? err.message : String(err));
       return;
     }
     if (failed) return;
-    if (!header) return fail('不是有效的视频文件');
+    if (!header) return fail('invalidVideo');
     if (expected === 0 || collected.length !== expected) {
-      return fail(`视频解析不完整：${collected.length}/${expected} 帧`);
+      return fail('parseFailed', `${collected.length}/${expected}`);
     }
 
     // mp4box 的 cts 未应用 edit list：带 B 帧时首帧 cts 常偏移约 2 帧，统一减去最小值让首帧从 0 开始
@@ -117,7 +118,7 @@ export const demuxMp4 = (buffer: ArrayBuffer): Promise<Demuxed> =>
       const durationUs = toUs(s.duration, s.timescale);
       endUs = Math.max(endUs, timestampUs + durationUs);
       lastUs = Math.max(lastUs, timestampUs);
-      if (!s.data) throw new Error('视频样本缺少数据');
+      if (!s.data) throw new Error('sample has no data');
       return { data: s.data, timestampUs, durationUs, isKey: s.is_sync };
     });
     // 总时长以容器为准。不能用「最后显示帧的开始 + 样本时长」：样本时长按解码顺序记录，

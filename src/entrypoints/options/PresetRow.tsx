@@ -1,7 +1,8 @@
 // 预设列表的一行：单选（设为默认）+ 抖动色样 + 名称与摘要 + 编辑/删除。展开时下方出现编辑表单。
 
 import { Fragment, forwardRef } from 'react';
-import { describePreset, isBuiltinModified } from '../../core/presets';
+import { i18n } from '#i18n';
+import { describePreset, isBuiltinModified, presetName } from '../../core/presets';
 import type { Preset } from '../../core/types';
 import { DitherSwatch } from './DitherSwatch';
 
@@ -27,6 +28,7 @@ export const PresetRow = forwardRef<HTMLButtonElement, Props>(function PresetRow
   editButtonRef,
 ) {
   const modified = isBuiltinModified(preset);
+  const name = presetName(preset);
   return (
     <div className="row" data-expanded={expanded} data-default={isDefault}>
       <label className="row-main">
@@ -41,11 +43,13 @@ export const PresetRow = forwardRef<HTMLButtonElement, Props>(function PresetRow
         <DitherSwatch colors={preset.colors} dither={preset.dither} crop={22} className="swatch" />
         <span className="row-text">
           <span className="row-title">
-            <span className="sr-only">设为默认预设：</span>
-            <span className="row-name">{preset.name}</span>
-            {isDefault ? <span className="tag tag-accent">默认</span> : null}
+            <span className="sr-only">{i18n.t('row.setDefault')} </span>
+            <span className="row-name">{name}</span>
+            {isDefault ? <span className="tag tag-accent">{i18n.t('row.default')}</span> : null}
             {preset.builtin ? (
-              <span className="tag">{modified ? '内置 · 已调整' : '内置'}</span>
+              <span className="tag">
+                {modified ? i18n.t('row.builtinModified') : i18n.t('row.builtin')}
+              </span>
             ) : null}
           </span>
           <span className="row-summary" id={`${editorId}-summary`}>
@@ -68,17 +72,19 @@ export const PresetRow = forwardRef<HTMLButtonElement, Props>(function PresetRow
           className="button-text"
           aria-expanded={expanded}
           aria-controls={editorId}
-          aria-label={`${expanded ? '收起' : '编辑'}「${preset.name}」`}
+          aria-label={
+            expanded ? i18n.t('row.collapseName', [name]) : i18n.t('row.editName', [name])
+          }
           onClick={onToggle}
         >
-          {expanded ? '收起' : '编辑'}
+          {expanded ? i18n.t('row.collapse') : i18n.t('row.edit')}
         </button>
         {preset.builtin ? null : (
           <button
             type="button"
             className="button-icon"
-            aria-label={`删除「${preset.name}」`}
-            title="删除"
+            aria-label={i18n.t('row.deleteName', [name])}
+            title={i18n.t('row.delete')}
             onClick={onDelete}
           >
             <TrashIcon />

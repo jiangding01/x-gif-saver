@@ -60,7 +60,7 @@ X 会把用户上传的 GIF 转成 MP4 存储和播放，服务器上没有原�
 - **选中**：用该预设下载这一次；选的就是默认预设时按普通点击处理。失败状态下选预设，只重跑失败项。用非默认预设时完成提示带预设名，左键重试沿用同一预设
 - **键盘**：键盘打开时焦点落在默认预设，可直接 Enter；鼠标打开时焦点放在菜单本身、不预先高亮。↑↓ 循环、Home/End、Enter/Space 选中，Esc 或 Tab 关闭，焦点回到按钮
 - **实现**：原生 Popover（`popover="auto"`）放在按钮自己的 Shadow DOM 里，进入顶层，不被推文卡片的 `overflow` 裁掉；点外面、Esc 关闭由浏览器处理；页面滚动或窗口尺寸变化时关闭。菜单内的点击、右键不冒泡到 X（否则会跳转到推文详情页）
-- **定位与视觉**：默认在按钮下方右对齐，下方放不下翻到上方，都放不下取空间大的一侧并限制高度、菜单内滚动；左右夹在视口内。外观模仿 X 的下拉菜单，打开时按页面背景色适配浅色、暗蓝、纯黑，字体跟随页面
+- **定位与视觉**：默认在按钮下方右对齐，下方放不下翻到上方，都放不下取空间大的一侧并限制高度、菜单内滚动；左右夹在视口内。外观模仿 X 的下拉菜单，打开时按页面背景色适配浅色、暗蓝、纯黑；字体用与 X 一致的固定字体栈（`ui/font.ts`，TwitterChirp 打头），不读页面 body 的字体（X 没在 body 上设，英文界面的 Chrome 会退回 Times）
 
 ### 3.3 按钮状态
 
@@ -87,6 +87,15 @@ X 会把用户上传的 GIF 转成 MP4 存储和播放，服务器上没有原�
 - WXT 给 shadow 宿主设了 `all: initial !important`，宿主自身的布局样式必须写在 shadow 样式表的 `:host` 里
 - 与已有的 Media Harvest 按钮共存，各自追加，互不影响
 
+### 3.5 界面语言（i18n，v0.2.1）
+
+- 用 WXT 官方的 `@wxt-dev/i18n`（底层是 `chrome.i18n`）。文案在 `src/locales/en.json`（默认，`default_locale: 'en'`）与 `zh_CN.json`，构建时生成 `_locales/*/messages.json`；`i18n.t('a.b')` 的键名有类型检查
+- 语言跟随浏览器界面语言：中文浏览器显示简体中文，其他一律英文。不做插件内切换：`chrome.i18n` 不支持运行时换语言，自己写加载器还要多一个设置项
+- 插件名、简介、工具栏标题在 manifest 里用 `__MSG_extName__` 等占位；浏览器右键菜单标题在 background 里用 `i18n.t` 生成
+- 内置预设的名字按 id 翻译（`core/presets.ts` 的 `presetName`），存储里的 `name` 只是占位；同名校验和「自定义 N」都按显示名算。不需要迁移老数据，切换浏览器语言后名字跟着变
+- 转换失败的原因用 `JobError`（错误码 + 不翻译的技术细节，`core/errors.ts`）在 Worker → offscreen → background → content 之间传递，到 content 再翻译（`ui/errorText.ts`）：Worker 与 offscreen 文档里没有 `chrome.i18n`。程序缺陷类的断言报错不翻译，归为 `internal`，原文放进细节
+- 文案格式的两个坑：Chrome 把 `$名字$` 当具名占位符，`$1$2` 会被读成未定义的 `$1$`，导致整个扩展加载失败；`@wxt-dev/i18n` 把 `{名字}` 当具名参数，文案里要出现 `{author}` 这类字面量时用 `$1` 传入。两条都有单测守护（`src/locales/locales.test.ts`），同时检查两份文案键名一致、译文用到的参数是英文的子集
+
 ## 4. 架构
 
 ```
@@ -107,6 +116,7 @@ content script 另有两条只发给 background 的消息：按钮右键菜单�
 - 数据单向流动，进度沿原路返回，无循环依赖
 - offscreen 只能用 runtime 消息，且 `runtime.sendMessage` 是广播 → 每条消息带 `target` 字段（`core/messages.ts`）
 - offscreen 不能调用 `chrome.downloads` → 生成 blob URL 交给 background 下载，下载结束（complete/interrupted）后通知 offscreen `revokeObjectURL`
+- 失败消息带 `error: JobError`（错误码 + 细节）而不是文案，content 收到后按界面语言翻译（§3.5）
 
 ### 4.1 目录
 
@@ -119,6 +129,7 @@ src/
   core/settings.ts         设置存储（带版本迁移）与 resolvePreset
   core/presets.ts          预设管理纯函数：校验、新建、修改、删除/撤销、设默认、恢复出厂
   core/filename.ts         下载路径渲染、清洗与校验（设置页示例与 background 下载共用）
+  core/errors.ts           转换失败的错误码（JobError），不依赖 i18n，Worker 也引用
   pipeline/run.ts          转换流水线主流程（Worker 内运行）
   pipeline/demux.ts        取源 + 拆封装：fetch MP4，mp4box 取轨道信息、avcC 与样本
   pipeline/decode.ts       解码：VideoDecoder 生命周期与背压，按显示顺序产出 VideoFrame
@@ -131,6 +142,9 @@ src/
   ui/button.ts             操作栏「存 GIF」按钮（Shadow DOM）
   ui/presetMenu.ts         按钮的右键预设菜单（Popover）
   ui/toast.ts              右键菜单兜底的进度提示条
+  ui/errorText.ts          把错误码翻译成当前语言
+  locales/                 界面文案：en.json（默认）与 zh_CN.json；locales.test.ts 检查键名与格式
+  testing/i18n.ts          单测用的 #i18n：读 en.json（vitest.config.ts 里配置别名），断言按英文写
   entrypoints/background.ts
   entrypoints/x.content.ts
   entrypoints/offscreen/   offscreen 文档
@@ -273,7 +287,7 @@ Settings = { defaultPresetId, presets: Preset[], filenameTemplate, subfolder }
 
 **单元测试（Vitest，`pnpm test`）**：帧延迟、文件名模板与清洗（保留名、方向控制符、字节截断、未知变量）、媒体地址解析（已有）；抖动、抽帧、目标体积降级参数与完成提示、设置迁移（随功能补）。DOM 识别逻辑（`tweetTarget`、`modalTarget`）用 happy-dom 跑单测，测试片段按实测 DOM 裁剪（M1-1 起）。
 
-**端到端测试（Playwright，`pnpm test:e2e`，CI 独立 job）**：加载构建产物，在样本推文页上走完整链路（content script → background → offscreen → Worker → `chrome.downloads`），覆盖左键默认预设下载与文件名、右键预设菜单选「表情包」（尺寸与体积上限）、按钮注入失效时的右键菜单兜底与提示条。不访问真实网络：页面由 Playwright `route` 提供；Worker 的视频请求 `route` 拦不到，改用本地 HTTPS 服务（openssl 临时自签证书）+ `--host-resolver-rules`；Playwright 接管下载会绕过 `onDeterminingFilename`，测试在临时浏览器配置里设默认下载目录并恢复 Chrome 默认下载行为。细节见 `e2e/README.md`。X 真实 DOM 的变化仍靠手动验收。
+**端到端测试（Playwright，`pnpm test:e2e`，CI 独立 job）**：加载构建产物，在样本推文页上走完整链路（content script → background → offscreen → Worker → `chrome.downloads`），覆盖左键默认预设下载与文件名、右键预设菜单选「表情包」（尺寸与体积上限）、按钮注入失效时的右键菜单兜底与提示条。按 `en-US`、`zh-CN` 两个 project 各跑一遍（`--lang`），断言里的文案从扩展自己的 `chrome.i18n.getMessage` 取；只有 Linux（CI）认 `--lang`，CI 上还断言语言确实切换了，macOS 本机两遍都跟随系统语言。不访问真实网络：页面由 Playwright `route` 提供；Worker 的视频请求 `route` 拦不到，改用本地 HTTPS 服务（openssl 临时自签证书）+ `--host-resolver-rules`；Playwright 接管下载会绕过 `onDeterminingFilename`，测试在临时浏览器配置里设默认下载目录并恢复 Chrome 默认下载行为。细节见 `e2e/README.md`。X 真实 DOM 的变化仍靠手动验收。
 
 **手动验收**（每个里程碑结束时过一遍）：
 
@@ -348,3 +362,6 @@ Settings = { defaultPresetId, presets: Preset[], filenameTemplate, subfolder }
 | 2026-11-12 | M2-6 的迁移单测改为结构守护测试                                                       | 写空迁移：M2 未改 Settings 结构，version 仍为 1                                                                     |
 | 2026-11-12 | 加 Playwright 端到端测试，CI 独立 job                                                 | 只靠单测 + 手动验收：跨上下文链路（消息、offscreen、下载命名）回归只能人工发现                                      |
 | 2026-11-12 | e2e 视频走本地 HTTPS + host 映射，不 mock 扩展内部                                    | Playwright `route`：拦不到 offscreen Worker 的请求，会打到真实 video.twimg.com                                      |
+| 2026-11-12 | 界面语言跟随浏览器（`@wxt-dev/i18n`），默认英文，只做中英两种                         | 插件内切换语言：`chrome.i18n` 不支持，要自写加载器并多一个设置项；更多语言：翻译质量无人把关，有需求再加            |
+| 2026-11-12 | 失败原因以错误码传递，到 content 再翻译                                               | 出错处直接生成文案：Worker 与 offscreen 里没有 `chrome.i18n`                                                        |
+| 2026-11-12 | 内置预设名按 id 翻译，存储里的名字只作占位                                            | 迁移存储里的名字：换浏览器语言后又对不上                                                                            |

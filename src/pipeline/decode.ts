@@ -6,6 +6,7 @@
 //   - 待取的帧最多攒 MAX_READY 个，攒满就不再喂数据
 //   - flush() 不能先 await 再取帧（帧池被占满时 flush 永远不会完成），要边取边等
 
+import { jobError, wrapError } from '../core/errors';
 import type { Demuxed } from './demux';
 
 /** 待调用方取走的帧上限 */
@@ -50,7 +51,7 @@ export async function* decodeFrames(
 ): AsyncGenerator<VideoFrame> {
   const config: VideoDecoderConfig = { codec: video.codec, description: video.description };
   const support = await deps.isConfigSupported(config);
-  if (!support.supported) throw new Error(`当前浏览器不支持 H.264 解码（${video.codec}）`);
+  if (!support.supported) throw jobError('noH264', video.codec);
   signal.throwIfAborted();
 
   const ready: VideoFrame[] = [];
@@ -76,7 +77,7 @@ export async function* decodeFrames(
       notify();
     },
     error: (err) => {
-      failure = new Error(`视频解码失败：${err.message}`);
+      failure = jobError('decodeFailed', err.message);
       notify();
     },
   });
@@ -124,9 +125,7 @@ export async function* decodeFrames(
           (err: unknown) => {
             // 不是我们自己 close 引起的拒绝就是解码失败；不记下的话循环会当成「正常结束」，静默少帧
             if (!closed && !failure) {
-              failure = new Error(
-                `视频解码失败：${err instanceof Error ? err.message : String(err)}`,
-              );
+              failure = wrapError('decodeFailed', err);
             }
             flushDone = true;
             notify();

@@ -62,7 +62,9 @@ describe('demuxMp4', () => {
 
   it('不是 MP4 时报错', async () => {
     const junk = new TextEncoder().encode('definitely not an mp4 file').buffer as ArrayBuffer;
-    await expect(demuxMp4(junk)).rejects.toThrow(/不是有效的视频文件|视频解析/);
+    await expect(demuxMp4(junk)).rejects.toMatchObject({
+      code: expect.stringMatching(/^(invalidVideo|parseFailed)$/),
+    });
   });
 });
 
@@ -71,11 +73,11 @@ describe('fetchMp4', () => {
     vi.unstubAllGlobals();
   });
 
-  it('HTTP 错误码转成中文报错', async () => {
+  it('HTTP 错误码带上状态，报 fetchFailed', async () => {
     vi.stubGlobal('fetch', async () => new Response('nope', { status: 404 }));
     await expect(
       fetchMp4('https://video.twimg.com/x.mp4', new AbortController().signal),
-    ).rejects.toThrow('下载 GIF 视频失败：HTTP 404');
+    ).rejects.toMatchObject({ code: 'fetchFailed', detail: 'HTTP 404' });
   });
 
   it('网络异常带上原因', async () => {
@@ -84,7 +86,7 @@ describe('fetchMp4', () => {
     });
     await expect(
       fetchMp4('https://video.twimg.com/x.mp4', new AbortController().signal),
-    ).rejects.toThrow('下载 GIF 视频失败：Failed to fetch');
+    ).rejects.toMatchObject({ code: 'fetchFailed', detail: 'Failed to fetch' });
   });
 
   it('取消时原样抛出 AbortError，交给 Worker 判「已取消」', async () => {

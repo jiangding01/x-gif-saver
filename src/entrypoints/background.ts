@@ -6,7 +6,9 @@
 // SW 可能在转换途中被回收（风险 R3）：任务表与已取消的请求存进 storage.session，重启后从中恢复，
 // 否则进度消息无处转发、转好的 GIF 也不会下载。content 另有超时兜底。
 
+import { i18n } from '#i18n';
 import { browser, defineBackground, storage } from '#imports';
+import { errorOf } from '../core/errors';
 import { renderFilename } from '../core/filename';
 import {
   type ContentCommand,
@@ -65,7 +67,7 @@ export default defineBackground(() => {
       .createDocument({
         url,
         reasons: ['WORKERS', 'BLOBS'],
-        justification: '在 Worker 中把 MP4 转码为 GIF，并生成 blob URL 供下载',
+        justification: 'Convert MP4 to GIF in a Worker and create blob URLs for downloading',
       })
       .finally(() => {
         creating = null;
@@ -152,7 +154,7 @@ export default defineBackground(() => {
               target: 'content',
               type: 'job:error',
               requestId,
-              message: `无法启动转换：${err instanceof Error ? err.message : String(err)}`,
+              error: errorOf('startFailed', err),
             });
           }
           return;
@@ -185,7 +187,7 @@ export default defineBackground(() => {
             type: 'job:error',
             requestId: meta.requestId,
             mediaId: meta.mediaId,
-            message: msg.message,
+            error: msg.error,
           });
           return;
         }
@@ -222,7 +224,7 @@ export default defineBackground(() => {
               type: 'job:error',
               requestId: meta.requestId,
               mediaId: meta.mediaId,
-              message: `保存失败：${err instanceof Error ? err.message : String(err)}`,
+              error: errorOf('saveFailed', err),
             });
           }
           return;
@@ -252,11 +254,17 @@ export default defineBackground(() => {
     void browser.contextMenus.removeAll().then(() =>
       browser.contextMenus.create({
         id: CONTEXT_MENU_ID,
-        title: '保存为 GIF',
+        title: i18n.t('contextMenu.save'),
         contexts: ['page', 'link', 'image', 'video', 'selection'],
         documentUrlPatterns: ['https://x.com/*', 'https://twitter.com/*'],
       }),
     );
+  });
+  // 菜单项在安装时创建、跨重启保留；浏览器换了界面语言要重启才生效，启动时按当前语言刷新标题
+  browser.runtime.onStartup.addListener(() => {
+    void browser.contextMenus
+      .update(CONTEXT_MENU_ID, { title: i18n.t('contextMenu.save') })
+      .catch(() => {});
   });
   browser.contextMenus.onClicked.addListener((info, tab) => {
     if (info.menuItemId !== CONTEXT_MENU_ID || tab?.id === undefined) return;

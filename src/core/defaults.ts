@@ -3,6 +3,7 @@
 import type { Preset, Settings } from './types';
 
 // 默认值的取舍见 docs/TECH-DESIGN.md「预设」。
+// 内置预设的 name 只是存储里的占位：界面上按 id 显示当前语言的译名（presets.ts 的 presetName）。
 
 export const BUILTIN_PRESETS: Preset[] = [
   {

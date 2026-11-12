@@ -69,6 +69,8 @@ describe('planFrames', () => {
   });
 
   it('时间戳重复时报错，避免按时间戳查表时帧数对不上', () => {
-    expect(() => planFrames([0, 100_000, 100_000], 300_000, null)).toThrow('时间戳重复');
+    expect(() => planFrames([0, 100_000, 100_000], 300_000, null)).toThrow(
+      'duplicate frame timestamp',
+    );
   });
 });

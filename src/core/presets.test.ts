@@ -9,6 +9,7 @@ import {
   isBuiltinModified,
   MAX_CUSTOM_PRESETS,
   nextCustomName,
+  presetName,
   resetBuiltin,
   restorePreset,
   setDefault,
@@ -28,11 +29,24 @@ const withCustoms = (n: number): Settings => {
 
 describe('describePreset', () => {
   it('一行摘要：尺寸 · 帧率 · 颜色 · 抖动 · 体积上限', () => {
-    expect(describePreset(byId(base(), 'balanced'))).toBe('最长边 480px · 原帧率 · 256 色 · 抖动');
-    expect(describePreset(byId(base(), 'original'))).toBe('原始尺寸 · 原帧率 · 256 色 · 抖动');
-    expect(describePreset({ ...byId(base(), 'sticker'), dither: 'none' })).toBe(
-      '最长边 320px · ≤\u00a012fps · 128 色 · 不抖动 · ≤\u00a01MB',
+    // 单测按英文文案断言（src/testing/i18n.ts）
+    expect(describePreset(byId(base(), 'balanced'))).toBe(
+      'Max 480px · Original fps · 256 colors · Dithering',
     );
+    expect(describePreset(byId(base(), 'original'))).toBe(
+      'Original size · Original fps · 256 colors · Dithering',
+    );
+    expect(describePreset({ ...byId(base(), 'sticker'), dither: 'none' })).toBe(
+      'Max 320px · ≤\u00a012fps · 128 colors · No dithering · ≤\u00a01MB',
+    );
+  });
+});
+
+describe('presetName', () => {
+  it('内置预设按 id 显示译名，不看存储里的占位名；自定义预设用用户填的名字', () => {
+    expect(presetName(byId(base(), 'balanced'))).toBe('Balanced');
+    expect(presetName({ ...byId(base(), 'sticker'), name: '随便什么' })).toBe('Sticker');
+    expect(presetName(byId(withCustoms(1), 'c0'))).toBe('Custom 1');
   });
 });
 
@@ -46,18 +60,22 @@ describe('validatePreset', () => {
   });
 
   it('名称：不能为空、不超过 20 字、不与其他预设重名（同一预设不算重名）', () => {
-    expect(validatePreset({ ...balanced, name: '  ' }, s.presets).name).toBe('请填写名称');
+    expect(validatePreset({ ...balanced, name: '  ' }, s.presets).name).toBe('Enter a name');
     expect(validatePreset({ ...balanced, name: '长'.repeat(21) }, s.presets).name).toContain('20');
-    expect(validatePreset({ ...balanced, name: '原画' }, s.presets).name).toBe('已有同名预设');
-    expect(validatePreset({ ...balanced, name: '均衡' }, s.presets).name).toBeUndefined();
+    // 内置预设按显示名（当前语言的译名）判重，不看存储里的占位名
+    expect(validatePreset({ ...balanced, name: 'Original' }, s.presets).name).toBe(
+      'A preset with this name already exists',
+    );
+    expect(validatePreset({ ...balanced, name: '原画' }, s.presets).name).toBeUndefined();
+    expect(validatePreset({ ...balanced, name: 'Balanced' }, s.presets).name).toBeUndefined();
   });
 
   it('最长边 64–2048、帧率 1–50 的整数，边界值合法', () => {
     expect(validatePreset({ ...balanced, maxSide: 64, fpsCap: 50 }, s.presets)).toEqual({});
     expect(validatePreset({ ...balanced, maxSide: 2048, fpsCap: 1 }, s.presets)).toEqual({});
     const bad = validatePreset({ ...balanced, maxSide: 63, fpsCap: 51 }, s.presets);
-    expect(bad.maxSide).toContain('64–2048');
-    expect(bad.fpsCap).toContain('1–50');
+    expect(bad.maxSide).toContain('from 64 to 2048');
+    expect(bad.fpsCap).toContain('from 1 to 50');
     expect(validatePreset({ ...balanced, maxSide: 480.5 }, s.presets).maxSide).toBeDefined();
   });
 });
@@ -67,7 +85,7 @@ describe('addPreset', () => {
     const s = addPreset(base(), byId(base(), 'sticker'), 'c1');
     const added = byId(s, 'c1');
     expect(added).toMatchObject({
-      name: '自定义 1',
+      name: 'Custom 1',
       builtin: false,
       maxSide: 320,
       fpsCap: 12,
@@ -97,24 +115,24 @@ describe('addPreset', () => {
       dither: 'none',
       builtin: false,
     });
-    expect(() => addPreset(base(), byId(base(), 'balanced'), 'c2', { name: '均衡' })).toThrow(
-      '已有同名预设',
+    expect(() => addPreset(base(), byId(base(), 'balanced'), 'c2', { name: 'Balanced' })).toThrow(
+      'already exists',
     );
     expect(() => addPreset(base(), byId(base(), 'balanced'), 'c2', { maxSide: 10 })).toThrow(
-      '64–2048',
+      'from 64 to 2048',
     );
   });
 
   it('编号取最小空闲：删掉「自定义 1」后再新建，名称回到 1', () => {
     let s = withCustoms(2);
     s = deletePreset(s, 'c0');
-    expect(nextCustomName(s)).toBe('自定义 1');
+    expect(nextCustomName(s)).toBe('Custom 1');
   });
 
   it(`自定义预设最多 ${MAX_CUSTOM_PRESETS} 个（不含内置）`, () => {
     const s = withCustoms(MAX_CUSTOM_PRESETS);
     expect(customCount(s)).toBe(MAX_CUSTOM_PRESETS);
-    expect(() => addPreset(s, byId(s, 'balanced'), 'x')).toThrow('最多');
+    expect(() => addPreset(s, byId(s, 'balanced'), 'x')).toThrow('up to 10');
   });
 
   it('不修改入参', () => {
@@ -137,13 +155,13 @@ describe('updatePreset', () => {
   });
 
   it('预设已被别处删除时报错，不悄悄加回去', () => {
-    expect(() => updatePreset(base(), 'gone', { colors: 64 })).toThrow('已被删除');
+    expect(() => updatePreset(base(), 'gone', { colors: 64 })).toThrow('has been deleted');
   });
 });
 
 describe('deletePreset / restorePreset / setDefault', () => {
   it('内置预设不能删除', () => {
-    expect(() => deletePreset(base(), 'balanced')).toThrow('内置');
+    expect(() => deletePreset(base(), 'balanced')).toThrow("can't be deleted");
   });
 
   it('删除的是默认预设时，默认回到存储里的「均衡」', () => {
@@ -222,7 +240,7 @@ describe('目标体积（M2-4）', () => {
 
   it('摘要里带上体积上限', () => {
     expect(describePreset(byId(base(), 'sticker'))).toBe(
-      '最长边 320px · ≤\u00a012fps · 128 色 · 抖动 · ≤\u00a01MB',
+      'Max 320px · ≤\u00a012fps · 128 colors · Dithering · ≤\u00a01MB',
     );
     expect(describePreset(byId(base(), 'balanced'))).not.toContain('MB');
   });

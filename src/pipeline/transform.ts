@@ -41,7 +41,7 @@ export const planFrames = (
 ): Map<number, number> => {
   const sorted = [...timestampsUs].sort((a, b) => a - b);
   for (let i = 1; i < sorted.length; i++) {
-    if (sorted[i] === sorted[i - 1]) throw new Error(`视频帧时间戳重复：${sorted[i]}µs`);
+    if (sorted[i] === sorted[i - 1]) throw new Error(`duplicate frame timestamp: ${sorted[i]}µs`);
   }
 
   let kept = sorted;
