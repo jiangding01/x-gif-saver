@@ -39,17 +39,18 @@ pnpm build
 
 ## 开发
 
-| 命令                          | 作用                                           |
-| ----------------------------- | ---------------------------------------------- |
-| `pnpm dev`                    | 启动开发模式，自动打开带插件的 Chrome 并热更新 |
-| `pnpm build`                  | 生产构建到 `.output/chrome-mv3`                |
-| `pnpm zip`                    | 打包 zip                                       |
-| `pnpm compile`                | 生成 WXT 类型并做 TypeScript 类型检查          |
-| `pnpm test`                   | 单元测试（Vitest）                             |
-| `pnpm lint` / `pnpm lint:fix` | Biome 检查 / 自动修复                          |
-| `pnpm check`                  | 类型检查 + lint + 测试，提交前必须通过         |
+| 命令                          | 作用                                            |
+| ----------------------------- | ----------------------------------------------- |
+| `pnpm dev`                    | 启动开发模式，自动打开带插件的 Chrome 并热更新  |
+| `pnpm build`                  | 生产构建到 `.output/chrome-mv3`                 |
+| `pnpm zip`                    | 打包 zip                                        |
+| `pnpm compile`                | 生成 WXT 类型并做 TypeScript 类型检查           |
+| `pnpm test`                   | 单元测试（Vitest）                              |
+| `pnpm test:e2e`               | 构建后跑端到端测试（Playwright，见 e2e/README） |
+| `pnpm lint` / `pnpm lint:fix` | Biome 检查 / 自动修复                           |
+| `pnpm check`                  | 类型检查 + lint + 测试，提交前必须通过          |
 
-CI（GitHub Actions）在每个 PR 和 main 上运行 `pnpm install --frozen-lockfile`、`pnpm check`、`pnpm build`。推送 `vX.Y.Z` 标签后，Release 工作流会自动打包 `x-gif-saver-vX.Y.Z.zip` 并创建草稿 Release。
+CI（GitHub Actions）在每个 PR 和 main 上运行 `pnpm install --frozen-lockfile`、`pnpm check`、`pnpm build`，并另起一个 job 跑端到端测试（首次在本地运行前先 `pnpm exec playwright install chromium`）。推送 `vX.Y.Z` 标签后，Release 工作流会自动打包 `x-gif-saver-vX.Y.Z.zip` 并创建草稿 Release。
 
 ## 目录
 
@@ -61,6 +62,7 @@ src/
   ui/            操作栏按钮、右键预设菜单、兜底进度提示（Shadow DOM）
   entrypoints/   background / content script / offscreen / 设置页
 public/icons/    插件图标（16/32/48/128 PNG + 原稿 icon.svg）
+e2e/             端到端测试（Playwright，样本页面与说明）
 docs/
   TECH-DESIGN.md 技术方案
   ROADMAP.md     路线图

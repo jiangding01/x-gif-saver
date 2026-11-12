@@ -1,0 +1,29 @@
+<!doctype html>
+<!-- 按 2026-11 实测的 X 推文结构裁剪，只保留识别依赖的属性（与 src/adapters/x.test.ts 一致） -->
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <title>e2e tweet</title>
+  </head>
+  <body style="background: rgb(255, 255, 255)">
+    <main>
+      <article data-testid="tweet">
+        <a href="/e2e_user/status/1866000000000000001"><time datetime="2026-11-12">11:00</time></a>
+        <p data-testid="tweetText">e2e gif</p>
+        <div data-testid="videoComponent">
+          <video
+            muted
+            poster="https://pbs.twimg.com/tweet_video_thumb/E2EGIF000000001.jpg"
+            src="https://video.twimg.com/tweet_video/E2EGIF000000001.mp4"
+          ></video>
+        </div>
+        <!-- ACTION_BAR：?no-bar 时测试会去掉操作栏，模拟 X 改版导致按钮注入失效 -->
+        <div role="group">
+          <button data-testid="reply" type="button"><svg width="18.75" height="18.75"></svg></button>
+          <button data-testid="like" type="button"><svg width="18.75" height="18.75"></svg></button>
+        </div>
+        <!-- /ACTION_BAR -->
+      </article>
+    </main>
+  </body>
+</html>

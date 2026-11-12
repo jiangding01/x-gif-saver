@@ -1,5 +1,8 @@
 node_modules/
 .output/
+# Playwright 端到端测试产物
+test-results/
+playwright-report/
 .wxt/
 stats.html
 *.log
