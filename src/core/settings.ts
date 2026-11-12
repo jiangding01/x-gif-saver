@@ -42,7 +42,8 @@ export const BUILTIN_PRESETS: Preset[] = [
 export const DEFAULT_SETTINGS: Settings = {
   defaultPresetId: 'balanced',
   presets: BUILTIN_PRESETS,
-  filenameTemplate: '{author}_{tweetId}',
+  // 推文 ID 按时间递增，放在开头时文件夹按名称排序即按发帖时间排序
+  filenameTemplate: '{tweetId}_{author}',
   subfolder: 'X-GIF',
 };
 
