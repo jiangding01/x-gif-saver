@@ -56,16 +56,16 @@ describe('viewOf：单个 GIF', () => {
   const task = createTask(R, [source('A')]);
 
   it('没有任务 → 空闲；刚点击 → 排队（不等 background 回应）', () => {
-    expect(viewOf(null)).toMatchObject({ kind: 'idle', label: '保存为 GIF' });
+    expect(viewOf(null)).toMatchObject({ kind: 'idle', label: '保存为 GIF，右键可选预设' });
     expect(viewOf(task)).toMatchObject({ kind: 'queued', label: '排队中，点击取消' });
   });
 
   it('进度 → 进度环与百分比；完成 → ✓ 与体积、尺寸、帧率', () => {
-    // 编码阶段 42% → 总进度 10% + 42% × 90% ≈ 47.8%（下载占前 10%）
+    // 编码阶段 42% → 总进度 10% + 42% × 80% ≈ 43.6%（下载占前 10%，降级重编码占最后 10%）
     const view = viewOf(apply(task, progress('A', 0.42)));
     expect(view.kind).toBe('progress');
-    expect(view.ratio).toBeCloseTo(0.478);
-    expect(view.label).toBe('转换中 47%，点击取消');
+    expect(view.ratio).toBeCloseTo(0.436);
+    expect(view.label).toBe('转换中 43%，点击取消');
     expect(viewOf(apply(task, progress('A', 0.5), done('A')))).toMatchObject({
       kind: 'done',
       label: '已保存 1.7MB · 480×480 · 20fps',
@@ -90,10 +90,10 @@ describe('viewOf：同一推文多个 GIF', () => {
   const task = createTask(R, [source('A'), source('B')]);
 
   it('进度取平均（已完成的按 100% 计）', () => {
-    // A 完成按 1 计；B 编码 50% → 总进度 0.55
+    // A 完成按 1 计；B 编码 50% → 0.1 + 0.5 × 0.8 = 0.5，平均 0.75
     const view = viewOf(apply(task, done('A', 500_000), progress('B', 0.5)));
     expect(view.kind).toBe('progress');
-    expect(view.ratio).toBeCloseTo(0.775);
+    expect(view.ratio).toBeCloseTo(0.75);
   });
 
   it('全部完成才显示 ✓，提示合计体积', () => {
@@ -124,6 +124,90 @@ describe('viewOf：同一推文多个 GIF', () => {
   });
 });
 
+describe('右键菜单选的预设', () => {
+  const picked = { id: 'sticker', name: '表情包' };
+
+  it('完成提示带上预设名；默认预设不带', () => {
+    const task = createTask(R, [source('A')], picked);
+    expect(viewOf(apply(task, done('A')))).toMatchObject({
+      label: '已保存（表情包）1.7MB · 480×480 · 20fps',
+    });
+    const two = createTask(R, [source('A'), source('B')], picked);
+    expect(viewOf(apply(two, done('A'), done('B'))).label).toBe(
+      '已保存（表情包）2 个 GIF · 共 3.4MB',
+    );
+    expect(createTask(R, [source('A')])).not.toHaveProperty('preset');
+  });
+
+  it('任务记住预设，失败重试可以沿用', () => {
+    const task = apply(createTask(R, [source('A')], picked), error('网络错误', 'A'));
+    expect(task.preset).toEqual(picked);
+    expect(failedSources(task).map((s) => s.mediaId)).toEqual(['A']);
+  });
+});
+
+describe('目标体积（M2-4）', () => {
+  const withTarget = (bytes: number, colors: number, target: FinalParams['target']): ToContent => ({
+    target: 'content',
+    type: 'job:done',
+    requestId: R,
+    mediaId: 'A',
+    params: { ...params(bytes), width: 240, height: 240, fps: 10, colors, target },
+  });
+  const MB = 1024 * 1024;
+
+  it('降级重编码时提示压缩中', () => {
+    const task = apply(createTask(R, [source('A')]), {
+      target: 'content',
+      type: 'job:progress',
+      requestId: R,
+      mediaId: 'A',
+      stage: 'shrinking',
+      ratio: 0.5,
+    });
+    expect(viewOf(task).label).toBe('超出体积上限，压缩中 95%，点击取消');
+  });
+
+  it('首次就达标：提示不变', () => {
+    const task = apply(
+      createTask(R, [source('A')]),
+      withTarget(900_000, 127, { limit: MB, met: true, degraded: false }),
+    );
+    expect(viewOf(task).label).toBe('已保存 879KB · 240×240 · 10fps');
+  });
+
+  it('降级后达标：带上最终颜色数并说明降低了画质', () => {
+    const task = apply(
+      createTask(R, [source('A')], { id: 'sticker', name: '表情包' }),
+      withTarget(900_000, 63, { limit: MB, met: true, degraded: true }),
+    );
+    expect(viewOf(task).label).toBe(
+      '已保存（表情包）879KB · 240×240 · 10fps · 63 色（已降低画质压到 1MB 以内）',
+    );
+  });
+
+  it('上限按设置页的 MB 显示，不换算成 KB', () => {
+    const task = apply(
+      createTask(R, [source('A')]),
+      withTarget(121 * 1024, 63, { limit: 0.1 * MB, met: false, degraded: true }),
+    );
+    expect(viewOf(task).label).toBe(
+      '已保存 121KB · 240×240 · 10fps · 63 色（未能压到 0.1MB 以内）',
+    );
+  });
+
+  it('压不下来：明确提示未能压到上限以内', () => {
+    const task = apply(
+      createTask(R, [source('A')]),
+      withTarget(1.4 * MB, 63, { limit: MB, met: false, degraded: true }),
+    );
+    expect(viewOf(task)).toMatchObject({
+      kind: 'done',
+      label: '已保存 1.4MB · 240×240 · 10fps · 63 色（未能压到 1MB 以内）',
+    });
+  });
+});
+
 describe('isRunning：看门狗只盯已开始转换的任务', () => {
   it('排队中不算，收到进度后才算，结束后不算', () => {
     const task = createTask(R, [source('A')]);
@@ -139,7 +223,10 @@ describe('isRunning：看门狗只盯已开始转换的任务', () => {
 });
 
 describe('进度跨阶段单调', () => {
-  const stage = (s: 'fetching' | 'decoding' | 'encoding', ratio: number): ToContent => ({
+  const stage = (
+    s: 'fetching' | 'decoding' | 'encoding' | 'shrinking',
+    ratio: number,
+  ): ToContent => ({
     target: 'content',
     type: 'job:progress',
     requestId: R,
@@ -148,7 +235,7 @@ describe('进度跨阶段单调', () => {
     ratio,
   });
 
-  it('下载 100% 之后进入解码、编码，总进度不回退', () => {
+  it('下载 100% 之后进入解码、编码、降级重编码，总进度不回退', () => {
     const task = createTask(R, [source('A')]);
     const ratios = [
       stage('fetching', 0),
@@ -157,6 +244,9 @@ describe('进度跨阶段单调', () => {
       stage('encoding', 0),
       stage('encoding', 0.5),
       stage('encoding', 1),
+      stage('shrinking', 0),
+      stage('shrinking', 0.5),
+      stage('shrinking', 1),
     ].reduce<number[]>((acc, _msg, i, all) => {
       const t = apply(task, ...all.slice(0, i + 1));
       acc.push(viewOf(t).ratio);

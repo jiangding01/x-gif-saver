@@ -5,12 +5,14 @@ import {
   customCount,
   deletePreset,
   describePreset,
+  fromMB,
   isBuiltinModified,
   MAX_CUSTOM_PRESETS,
   nextCustomName,
   resetBuiltin,
   restorePreset,
   setDefault,
+  toMB,
   updatePreset,
   validatePreset,
 } from './presets';
@@ -25,11 +27,11 @@ const withCustoms = (n: number): Settings => {
 };
 
 describe('describePreset', () => {
-  it('一行摘要：尺寸 · 帧率 · 颜色 · 抖动', () => {
+  it('一行摘要：尺寸 · 帧率 · 颜色 · 抖动 · 体积上限', () => {
     expect(describePreset(byId(base(), 'balanced'))).toBe('最长边 480px · 原帧率 · 256 色 · 抖动');
     expect(describePreset(byId(base(), 'original'))).toBe('原始尺寸 · 原帧率 · 256 色 · 抖动');
     expect(describePreset({ ...byId(base(), 'sticker'), dither: 'none' })).toBe(
-      '最长边 320px · ≤ 12fps · 128 色 · 不抖动',
+      '最长边 320px · ≤\u00a012fps · 128 色 · 不抖动 · ≤\u00a01MB',
     );
   });
 });
@@ -61,7 +63,7 @@ describe('validatePreset', () => {
 });
 
 describe('addPreset', () => {
-  it('复制模板参数、改名为最小空闲编号、标为自定义、不继承目标体积', () => {
+  it('复制模板参数（含目标体积）、改名为最小空闲编号、标为自定义', () => {
     const s = addPreset(base(), byId(base(), 'sticker'), 'c1');
     const added = byId(s, 'c1');
     expect(added).toMatchObject({
@@ -70,8 +72,13 @@ describe('addPreset', () => {
       maxSide: 320,
       fpsCap: 12,
       colors: 128,
-      targetBytes: null,
+      targetBytes: 1024 * 1024,
     });
+  });
+
+  it('目标体积可在弹窗里改成不限', () => {
+    const s = addPreset(base(), byId(base(), 'sticker'), 'c1', { targetBytes: null });
+    expect(byId(s, 'c1').targetBytes).toBeNull();
   });
 
   it('可用弹窗里填的名称与参数覆盖模板；名称冲突或参数非法时报错', () => {
@@ -187,5 +194,36 @@ describe('isBuiltinModified / resetBuiltin', () => {
       'sticker',
     );
     expect(byId(s, 'sticker')).toEqual(BUILTIN_PRESETS.find((p) => p.id === 'sticker'));
+  });
+});
+
+describe('目标体积（M2-4）', () => {
+  it('MB 与字节互转，按 0.1MB 取整', () => {
+    expect(toMB(1024 * 1024)).toBe('1');
+    expect(toMB(fromMB(2.5))).toBe('2.5');
+    expect(fromMB(1)).toBe(1024 * 1024);
+    expect(fromMB(0.14)).toBe(fromMB(0.1));
+  });
+
+  it('范围 0.1–100MB，留空（null）不限', () => {
+    const sticker = byId(base(), 'sticker');
+    const all = base().presets;
+    expect(validatePreset({ ...sticker, targetBytes: null }, all)).toEqual({});
+    expect(validatePreset({ ...sticker, targetBytes: fromMB(0.1) }, all)).toEqual({});
+    expect(validatePreset({ ...sticker, targetBytes: fromMB(100) }, all)).toEqual({});
+    expect(validatePreset({ ...sticker, targetBytes: 1000 }, all)).toHaveProperty('targetBytes');
+    expect(validatePreset({ ...sticker, targetBytes: fromMB(101) }, all)).toHaveProperty(
+      'targetBytes',
+    );
+    expect(validatePreset({ ...sticker, targetBytes: Number.NaN }, all)).toHaveProperty(
+      'targetBytes',
+    );
+  });
+
+  it('摘要里带上体积上限', () => {
+    expect(describePreset(byId(base(), 'sticker'))).toBe(
+      '最长边 320px · ≤\u00a012fps · 128 色 · 抖动 · ≤\u00a01MB',
+    );
+    expect(describePreset(byId(base(), 'balanced'))).not.toContain('MB');
   });
 });

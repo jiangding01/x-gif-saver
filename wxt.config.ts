@@ -17,8 +17,8 @@ export default defineConfig({
   manifest: {
     name: 'X GIF Saver',
     description: '一键把 X 上的 GIF 保存为 .gif 文件，可作为表情包使用',
-    // contextMenus 在 M2-5（右键菜单兜底）时再加
-    permissions: ['downloads', 'offscreen', 'storage'],
+    // contextMenus：浏览器右键菜单「保存为 GIF」，操作栏按钮失效时兜底（M2-5）
+    permissions: ['contextMenus', 'downloads', 'offscreen', 'storage'],
     host_permissions: ['https://x.com/*', 'https://twitter.com/*', 'https://video.twimg.com/*'],
     icons: ICONS,
     // 工具栏按钮：点击打开设置页（background 监听 action.onClicked），不需要额外权限

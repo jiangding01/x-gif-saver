@@ -4,9 +4,12 @@
 import { type Ref, useId } from 'react';
 import {
   FPS_CAP_RANGE,
+  fromMB,
   MAX_SIDE_RANGE,
   NAME_MAX_LENGTH,
   type PresetErrors,
+  TARGET_MB_RANGE,
+  toMB,
 } from '../../core/presets';
 import type { DitherMode, Preset } from '../../core/types';
 import { DitherSwatch } from './DitherSwatch';
@@ -16,6 +19,8 @@ export type FormDraft = {
   name: string;
   maxSide: string;
   fpsCap: string;
+  /** 目标体积的 MB 文本（存储里是字节） */
+  targetBytes: string;
   colors: Preset['colors'];
   dither: DitherMode;
 };
@@ -25,6 +30,7 @@ export type ChangeKind = 'typing' | 'pick';
 
 const SIZE_CHOICES = [null, 640, 480, 320, 240] as const;
 const FPS_CHOICES = [null, 24, 15, 12, 10] as const;
+const TARGET_CHOICES = [null, 1, 2, 5, 8] as const;
 const COLOR_CHOICES = [256, 128, 64] as const;
 
 const toText = (v: number | null) => (v === null ? '' : String(v));
@@ -32,10 +38,18 @@ const toText = (v: number | null) => (v === null ? '' : String(v));
 const parseOptional = (text: string): number | null =>
   text.trim() === '' ? null : Number(text.trim());
 
+/** 只留数字；允许小数时最多一个小数点、一位小数 */
+const cleanNumber = (text: string, decimal: boolean): string => {
+  if (!decimal) return text.replace(/[^\d]/g, '');
+  const [int = '', ...rest] = text.replace(/[^\d.]/g, '').split('.');
+  return rest.length === 0 ? int : `${int}.${rest.join('').slice(0, 1)}`;
+};
+
 export const draftOf = (p: Preset): FormDraft => ({
   name: p.name,
   maxSide: toText(p.maxSide),
   fpsCap: toText(p.fpsCap),
+  targetBytes: p.targetBytes === null ? '' : toMB(p.targetBytes),
   colors: p.colors,
   dither: p.dither,
 });
@@ -43,13 +57,18 @@ export const draftOf = (p: Preset): FormDraft => ({
 /** 草稿 → 预设字段（名称去首尾空格） */
 export const fieldsOf = (
   d: FormDraft,
-): Pick<Preset, 'name' | 'maxSide' | 'fpsCap' | 'colors' | 'dither'> => ({
-  name: d.name.trim(),
-  maxSide: parseOptional(d.maxSide),
-  fpsCap: parseOptional(d.fpsCap),
-  colors: d.colors,
-  dither: d.dither,
-});
+): Pick<Preset, 'name' | 'maxSide' | 'fpsCap' | 'targetBytes' | 'colors' | 'dither'> => {
+  const mb = parseOptional(d.targetBytes);
+  return {
+    name: d.name.trim(),
+    maxSide: parseOptional(d.maxSide),
+    fpsCap: parseOptional(d.fpsCap),
+    // 非数字原样交给校验报错（NaN 不在范围内）
+    targetBytes: mb === null ? null : Number.isFinite(mb) ? fromMB(mb) : Number.NaN,
+    colors: d.colors,
+    dither: d.dither,
+  };
+};
 
 type Props = {
   draft: FormDraft;
@@ -76,13 +95,16 @@ export const PresetForm = ({ draft, errors, showName, onChange, firstFieldRef }:
     ) : null;
 
   const numberField = (
-    field: 'maxSide' | 'fpsCap',
+    field: 'maxSide' | 'fpsCap' | 'targetBytes',
     label: string,
     unit: string,
     placeholder: string,
     choices: readonly (number | null)[],
     range: { min: number; max: number },
     isFirst: boolean,
+    /** 允许一位小数（体积 MB）；否则只收整数 */
+    decimal = false,
+    hint = `留空表示不限制，范围 ${range.min}–${range.max}`,
   ) => (
     <div className="field">
       <label className="field-label" htmlFor={`${uid}-${field}`}>
@@ -93,11 +115,11 @@ export const PresetForm = ({ draft, errors, showName, onChange, firstFieldRef }:
           id={`${uid}-${field}`}
           ref={isFirst ? firstFieldRef : undefined}
           type="text"
-          inputMode="numeric"
+          inputMode={decimal ? 'decimal' : 'numeric'}
           autoComplete="off"
           placeholder={placeholder}
           value={draft[field]}
-          onChange={(e) => onChange({ [field]: e.target.value.replace(/[^\d]/g, '') }, 'typing')}
+          onChange={(e) => onChange({ [field]: cleanNumber(e.target.value, decimal) }, 'typing')}
           {...errorProps(field)}
         />
         <span className="unit" aria-hidden="true">
@@ -116,15 +138,13 @@ export const PresetForm = ({ draft, errors, showName, onChange, firstFieldRef }:
               aria-pressed={draft[field] === text}
               onClick={() => onChange({ [field]: text }, 'pick')}
             >
-              {choice === null ? '原始' : choice}
+              {choice === null ? (decimal ? '不限' : '原始') : `${choice}${decimal ? 'MB' : ''}`}
             </button>
           );
         })}
       </fieldset>
       {fieldError(field)}
-      <p className="field-hint">
-        留空表示不限制，范围 {range.min}–{range.max}
-      </p>
+      <p className="field-hint">{hint}</p>
     </div>
   );
 
@@ -172,6 +192,17 @@ export const PresetForm = ({ draft, errors, showName, onChange, firstFieldRef }:
           !showName,
         )}
         {numberField('fpsCap', '帧率不超过', 'fps', '原帧率', FPS_CHOICES, FPS_CAP_RANGE, false)}
+        {numberField(
+          'targetBytes',
+          '体积不超过',
+          'MB',
+          '不限',
+          TARGET_CHOICES,
+          TARGET_MB_RANGE,
+          false,
+          true,
+          `超出时依次降低颜色数、帧率、尺寸重新转换，最多 4 次；范围 ${TARGET_MB_RANGE.min}–${TARGET_MB_RANGE.max}`,
+        )}
 
         <fieldset className="field">
           <legend className="field-label">颜色数</legend>

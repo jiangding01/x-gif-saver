@@ -44,6 +44,13 @@ describe('renderFilename', () => {
     expect(render('x', '/abs//..\\..')).toBe('abs/x.gif');
   });
 
+  it('作者与推文 ID 都拿不到（引用卡片里的 GIF）时回退到媒体 ID', () => {
+    const anon = { ...src, author: '', tweetId: '' };
+    expect(renderFilename('{tweetId}_{author}', 'X-GIF', anon, 1, 1, now)).toBe(
+      'X-GIF/HWz0LgxbUAEtAWN.gif',
+    );
+  });
+
   it('模板渲染为空时回退到媒体 ID', () => {
     expect(render('...')).toBe('HWz0LgxbUAEtAWN.gif');
     expect(render('   ')).toBe('HWz0LgxbUAEtAWN.gif');

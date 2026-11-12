@@ -74,7 +74,8 @@ export const renderFilename = (
     date: ymd(now),
   };
   let base = sanitizeSegment(expand(template, vars));
-  if (!base) base = source.mediaId;
+  // 渲染结果里没有任何字母或数字（如作者、推文 ID 都拿不到时只剩「_」）就用媒体 ID
+  if (!/[\p{L}\p{N}]/u.test(base)) base = source.mediaId;
   if (total > 1) base += `_${index}`;
   // 「..」「.」清洗后为空，被过滤掉，不会跳出下载目录
   const dir = expand(subfolder, vars).split(/[\\/]/).map(sanitizeSegment).filter(Boolean).join('/');

@@ -8,7 +8,12 @@
 
 import { browser, defineBackground, storage } from '#imports';
 import { renderFilename } from '../core/filename';
-import { isToBackground, type ToContent, type ToOffscreen } from '../core/messages';
+import {
+  type ContentCommand,
+  isToBackground,
+  type ToContent,
+  type ToOffscreen,
+} from '../core/messages';
 import { resolvePreset, settingsItem } from '../core/settings';
 import type { Job } from '../core/types';
 
@@ -155,6 +160,9 @@ export default defineBackground(() => {
         case 'job:cancel':
           await cancelRequest(msg.requestId);
           return;
+        case 'options:open':
+          await browser.runtime.openOptionsPage();
+          return;
         case 'job:progress': {
           const meta = jobs.get(msg.jobId);
           if (!meta) return;
@@ -234,6 +242,31 @@ export default defineBackground(() => {
     }
     filenameByBlobUrl.delete(item.url);
     suggest({ filename, conflictAction: 'uniquify' });
+  });
+
+  // 浏览器右键菜单「保存为 GIF」（M2-5）：操作栏按钮失效时兜底。只在 x.com / twitter.com 上出现；
+  // 具体存哪个 GIF 由 content script 按右键位置判断。X 在 GIF 播放器上拦截了右键（风险 R4），
+  // content script 只对 GIF 播放器放行浏览器菜单
+  const CONTEXT_MENU_ID = 'save-gif';
+  browser.runtime.onInstalled.addListener(() => {
+    void browser.contextMenus.removeAll().then(() =>
+      browser.contextMenus.create({
+        id: CONTEXT_MENU_ID,
+        title: '保存为 GIF',
+        contexts: ['page', 'link', 'image', 'video', 'selection'],
+        documentUrlPatterns: ['https://x.com/*', 'https://twitter.com/*'],
+      }),
+    );
+  });
+  browser.contextMenus.onClicked.addListener((info, tab) => {
+    if (info.menuItemId !== CONTEXT_MENU_ID || tab?.id === undefined) return;
+    const msg: ContentCommand = {
+      target: 'content',
+      type: 'context:save',
+      ...(info.srcUrl ? { srcUrl: info.srcUrl } : {}),
+    };
+    // 扩展安装前就打开的页面没有 content script，发送会失败：忽略，刷新页面后即可用
+    browser.tabs.sendMessage(tab.id, msg, { frameId: info.frameId }).catch(() => {});
   });
 
   // 工具栏按钮：打开设置页；已打开时 Chrome 会切到那个标签页，不会重复开

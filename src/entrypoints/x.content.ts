@@ -10,19 +10,37 @@
 // 按钮被 X 重挂后也能恢复。一次点击 = 一个请求（requestId），background 回传的消息按 requestId 路由。
 
 import { browser, type ContentScriptContext, defineContentScript } from '#imports';
-import { type GifTarget, modalTarget, TWEET_SELECTOR, tweetTarget } from '../adapters/x';
-import { isToContent, type ToBackground, type ToContent } from '../core/messages';
+import {
+  type GifTarget,
+  gifMediaIdFrom,
+  gifPlayerAt,
+  gifsAt,
+  modalTarget,
+  mp4UrlFor,
+  TWEET_SELECTOR,
+  tweetTarget,
+} from '../adapters/x';
+import { isContentCommand, isToContent, type ToBackground, type ToContent } from '../core/messages';
+import { describePreset } from '../core/presets';
+import { resolvePreset, settingsItem } from '../core/settings';
 import type { GifSource } from '../core/types';
-import { mountSaveButton, renderButton, type SaveButton } from '../ui/button';
+import {
+  type ContextMenuHandler,
+  mountSaveButton,
+  renderButton,
+  type SaveButton,
+} from '../ui/button';
 import {
   applyMessage,
   createTask,
   failedSources,
   isRunning,
   isSettled,
+  type PickedPreset,
   type Task,
   viewOf,
 } from '../ui/state';
+import { createToast } from '../ui/toast';
 
 type Mounted = { key: string; actionBar: Element; ui: Promise<SaveButton | null> };
 type TaskEntry = { task: Task; lastEventAt: number; doneTimer?: number };
@@ -43,6 +61,10 @@ const isAlive = (ui: SaveButton, actionBar: Element): boolean =>
 
 const tweetIdOf = (target: GifTarget): string => target.sources[0]?.tweetId ?? '';
 
+/** 右键位置的有效期：浏览器菜单打开后用户可能停留一会儿再点「保存为 GIF」 */
+const CONTEXT_TTL_MS = 60_000;
+const TOAST_DONE_MS = 4000;
+
 export default defineContentScript({
   matches: ['https://x.com/*', 'https://twitter.com/*'],
   runAt: 'document_idle',
@@ -52,6 +74,10 @@ export default defineContentScript({
     const tasks = new Map<string, TaskEntry>();
     const tweetByRequest = new Map<string, string>();
     const lastClickAt = new Map<string, number>();
+    /** 右键菜单兜底：最近一次右键的位置，以及没有按钮可显示状态时用 toast 提示的那个任务 */
+    let lastContext: { el: Element; at: number } | null = null;
+    let toastKey: string | null = null;
+    const toast = createToast();
 
     const findTargets = (): GifTarget[] => {
       const targets: GifTarget[] = [];
@@ -68,8 +94,34 @@ export default defineContentScript({
 
     const currentView = (tweetId: string) => viewOf(tasks.get(tweetId)?.task ?? null);
 
+    /** 右键菜单发起、页面上没有对应按钮的任务：进度与结果用 toast 显示 */
+    const refreshToast = (tweetId: string) => {
+      if (toastKey !== tweetId) return;
+      const view = currentView(tweetId);
+      switch (view.kind) {
+        case 'queued':
+          toast.show('排队中…');
+          return;
+        case 'progress':
+          toast.show(view.label.replace('，点击取消', ''));
+          return;
+        case 'done':
+          toast.show(view.label, 'info', TOAST_DONE_MS);
+          toastKey = null;
+          return;
+        case 'error':
+          toast.show(view.label.replace('，点击重试', ''), 'error', TOAST_DONE_MS);
+          toastKey = null;
+          return;
+        case 'idle':
+          toast.hide();
+          toastKey = null;
+      }
+    };
+
     /** 刷新该推文的所有按钮（时间线、弹窗可能各有一个），顺手清掉已被 X 移除的 */
     const refresh = (tweetId: string) => {
+      refreshToast(tweetId);
       const buttons = buttonsByTweet.get(tweetId);
       if (!buttons) return;
       const view = currentView(tweetId);
@@ -113,14 +165,21 @@ export default defineContentScript({
       refresh(tweetId);
     };
 
-    const start = async (tweetId: string, sources: GifSource[]) => {
+    /** @param preset 右键菜单选的非默认预设；不传则由 background 用默认预设 */
+    const start = async (tweetId: string, sources: GifSource[], preset?: PickedPreset) => {
       clearTask(tweetId);
       const requestId = crypto.randomUUID();
-      tasks.set(tweetId, { task: createTask(requestId, sources), lastEventAt: Date.now() });
+      tasks.set(tweetId, { task: createTask(requestId, sources, preset), lastEventAt: Date.now() });
       tweetByRequest.set(requestId, tweetId);
       // 点击后立即显示排队转圈，不等 background 回应
       refresh(tweetId);
-      const ok = await send({ target: 'background', type: 'job:start', requestId, sources });
+      const ok = await send({
+        target: 'background',
+        type: 'job:start',
+        requestId,
+        sources,
+        ...(preset ? { presetId: preset.id } : {}),
+      });
       if (!ok) failLocally(tweetId, '扩展已更新，请刷新页面后重试');
     };
 
@@ -154,12 +213,101 @@ export default defineContentScript({
           cancel(tweetId);
           return;
         case 'error':
-          void start(tweetId, entry ? failedSources(entry.task) : target.sources);
+          // 重试只重跑失败项，沿用上次的预设
+          void start(
+            tweetId,
+            entry ? failedSources(entry.task) : target.sources,
+            entry?.task.preset,
+          );
           return;
       }
     };
 
+    /**
+     * 右键（或 ContextMenu 键）：空闲、完成、失败时弹出预设菜单，选中的预设只用于这一次。
+     * 转换中不拦截，浏览器原生菜单照常出现
+     */
+    const onContextMenu =
+      (container: Element): ContextMenuHandler =>
+      (button, menu, viaKeyboard) => {
+        const target = findTargets().find((t) => t.container === container);
+        if (!target) return false;
+        const tweetId = tweetIdOf(target);
+        const kind = viewOf(tasks.get(tweetId)?.task ?? null).kind;
+        if (kind === 'queued' || kind === 'progress') return false;
+        void settingsItem.getValue().then(
+          (settings) => {
+            const fallback = resolvePreset(settings);
+            menu.open(
+              button,
+              settings.presets.map((p) => ({
+                id: p.id,
+                name: p.name,
+                detail: describePreset(p),
+                isDefault: p.id === fallback.id,
+              })),
+              {
+                onPick: (id) => {
+                  // 选完再识别一次：菜单打开期间状态或 GIF 列表可能已变化
+                  const now = findTargets().find((t) => t.container === container);
+                  if (!now) return;
+                  const entry = tasks.get(tweetId);
+                  const state = viewOf(entry?.task ?? null).kind;
+                  if (state === 'queued' || state === 'progress') return;
+                  lastClickAt.set(tweetId, Date.now());
+                  const preset = settings.presets.find((p) => p.id === id);
+                  const picked = preset && preset.id !== fallback.id ? preset : undefined;
+                  void start(
+                    tweetId,
+                    state === 'error' && entry ? failedSources(entry.task) : now.sources,
+                    picked ? { id: picked.id, name: picked.name } : undefined,
+                  );
+                },
+                onManage: () => void send({ target: 'background', type: 'options:open' }),
+              },
+              viaKeyboard,
+            );
+          },
+          (err) => console.warn('[x-gif-saver] 读取预设失败', err),
+        );
+        return true;
+      };
+
+    /**
+     * 浏览器右键菜单「保存为 GIF」（M2-5）：按最近一次右键的位置找 GIF，不依赖操作栏。
+     * 位置过期或丢失时，右键落在视频上的 srcUrl 也能直接定位 GIF（作者与推文 ID 未知，文件名用媒体 ID）
+     */
+    const saveFromContextMenu = (srcUrl?: string) => {
+      const fresh =
+        lastContext && Date.now() - lastContext.at < CONTEXT_TTL_MS ? lastContext : null;
+      let sources = fresh?.el.isConnected ? gifsAt(fresh.el, location.pathname) : null;
+      if (!sources && srcUrl) {
+        const mediaId = gifMediaIdFrom(srcUrl, null);
+        if (mediaId) sources = [{ mediaId, mp4Url: mp4UrlFor(mediaId), author: '', tweetId: '' }];
+      }
+      if (!sources || sources.length === 0) {
+        toast.show('这里没有找到 GIF：请在 GIF 或带 GIF 的推文上右键', 'error', TOAST_DONE_MS);
+        return;
+      }
+      const first = sources[0] as GifSource;
+      // 状态按推文 ID 存；归属未知（引用卡片里拿不到链接）时用媒体 ID
+      const key = first.tweetId || first.mediaId;
+      const kind = viewOf(tasks.get(key)?.task ?? null).kind;
+      if (kind === 'queued' || kind === 'progress') {
+        if (!buttonsByTweet.get(key)?.size)
+          toast.show('这条推文的 GIF 正在转换', 'info', TOAST_DONE_MS);
+        return;
+      }
+      lastClickAt.set(key, Date.now());
+      toastKey = buttonsByTweet.get(key)?.size ? null : key;
+      void start(key, sources);
+    };
+
     const onJobMessage = (msg: unknown) => {
+      if (isContentCommand(msg)) {
+        saveFromContextMenu(msg.srcUrl);
+        return;
+      }
       if (!isToContent(msg)) return;
       const tweetId = tweetByRequest.get(msg.requestId);
       const entry = tweetId ? tasks.get(tweetId) : undefined;
@@ -195,7 +343,13 @@ export default defineContentScript({
     const mount = (target: GifTarget) => {
       const { container, actionBar } = target;
       const tweetId = tweetIdOf(target);
-      const ui = mountSaveButton(ctx, actionBar, () => onClick(container), currentView(tweetId))
+      const ui = mountSaveButton(
+        ctx,
+        actionBar,
+        () => onClick(container),
+        onContextMenu(container),
+        currentView(tweetId),
+      )
         .then((button) => {
           const set = buttonsByTweet.get(tweetId) ?? new Set<SaveButton>();
           set.add(button);
@@ -247,6 +401,16 @@ export default defineContentScript({
       });
     };
 
+    // 记下右键位置（捕获阶段，先于 X 的处理器）。X 在 GIF 播放器上拦截右键、浏览器菜单不出现（风险 R4），
+    // 只对 GIF 播放器截住事件不让 X 收到，浏览器菜单（含「保存为 GIF」）就能弹出；其他位置不干预
+    const onAnyContextMenu = (e: MouseEvent) => {
+      const el = e.composedPath()[0];
+      if (!(el instanceof Element)) return;
+      lastContext = { el, at: Date.now() };
+      if (gifPlayerAt(el)) e.stopImmediatePropagation();
+    };
+    window.addEventListener('contextmenu', onAnyContextMenu, true);
+
     const observer = new MutationObserver(scheduleScan);
     observer.observe(document.body, {
       childList: true,
@@ -260,6 +424,8 @@ export default defineContentScript({
     ctx.onInvalidated(() => {
       observer.disconnect();
       browser.runtime.onMessage.removeListener(onJobMessage);
+      window.removeEventListener('contextmenu', onAnyContextMenu, true);
+      toast.remove();
       for (const tweetId of [...tasks.keys()]) clearTask(tweetId);
     });
   },

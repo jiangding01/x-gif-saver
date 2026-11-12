@@ -10,19 +10,29 @@ export const MAX_CUSTOM_PRESETS = 10;
 export const NAME_MAX_LENGTH = 20;
 export const MAX_SIDE_RANGE = { min: 64, max: 2048 } as const;
 export const FPS_CAP_RANGE = { min: 1, max: 50 } as const;
+/** 目标体积（MB），留空表示不限 */
+export const TARGET_MB_RANGE = { min: 0.1, max: 100 } as const;
+const MB = 1024 * 1024;
 /** 默认预设失效时的回退目标 */
 export const FALLBACK_PRESET_ID = 'balanced';
 
 /** 参数里会被用户编辑、需要校验与比较的字段 */
-export type PresetParams = Pick<Preset, 'maxSide' | 'fpsCap' | 'colors' | 'dither'>;
-export type PresetErrors = Partial<Record<'name' | 'maxSide' | 'fpsCap', string>>;
+export type PresetParams = Pick<Preset, 'maxSide' | 'fpsCap' | 'colors' | 'dither' | 'targetBytes'>;
+export type PresetErrors = Partial<Record<'name' | 'maxSide' | 'fpsCap' | 'targetBytes', string>>;
+
+/** 字节 → MB 文本，最多一位小数，去掉多余的 .0（1048576 → "1"） */
+export const toMB = (bytes: number): string => String(Math.round((bytes / MB) * 10) / 10);
+/** MB → 字节，按 0.1MB 取整 */
+export const fromMB = (mb: number): number => Math.round(Math.round(mb * 10) * (MB / 10));
 
 export const describePreset = (p: Preset): string =>
   [
     p.maxSide === null ? '原始尺寸' : `最长边 ${p.maxSide}px`,
-    p.fpsCap === null ? '原帧率' : `≤ ${p.fpsCap}fps`,
+    // ≤ 后用不换行空格：窄处换行时不把「≤」和数字拆到两行
+    p.fpsCap === null ? '原帧率' : `≤\u00a0${p.fpsCap}fps`,
     `${p.colors} 色`,
     p.dither === 'bayer' ? '抖动' : '不抖动',
+    ...(p.targetBytes === null ? [] : [`≤\u00a0${toMB(p.targetBytes)}MB`]),
   ].join(' · ');
 
 const isIntIn = (v: number, range: { min: number; max: number }) =>
@@ -40,6 +50,12 @@ export const validatePreset = (p: Preset, all: readonly Preset[]): PresetErrors 
   if (p.fpsCap !== null && !isIntIn(p.fpsCap, FPS_CAP_RANGE)) {
     errors.fpsCap = `请输入 ${FPS_CAP_RANGE.min}–${FPS_CAP_RANGE.max} 的整数，留空表示原帧率`;
   }
+  if (
+    p.targetBytes !== null &&
+    !(p.targetBytes >= fromMB(TARGET_MB_RANGE.min) && p.targetBytes <= fromMB(TARGET_MB_RANGE.max))
+  ) {
+    errors.targetBytes = `请输入 ${TARGET_MB_RANGE.min}–${TARGET_MB_RANGE.max} 的数字（MB），留空表示不限`;
+  }
   return errors;
 };
 
@@ -55,7 +71,7 @@ export const nextCustomName = (s: Settings): string => {
 
 /**
  * 以 base 的参数新建自定义预设，追加到末尾；overrides 覆盖名称与参数（「新建预设」弹窗里填的值）。
- * 不继承 targetBytes：目标体积（C5）由 M2-4 实现，复制「表情包」时不能把看不见的 1MB 带过去。
+ * 目标体积（M2-4 起在表单里可见可改）与其他参数一样随模板带入。
  * 写入前按最新设置校验：名称与别处同时新建的预设撞名等情况直接报错
  */
 export const addPreset = (
@@ -73,7 +89,6 @@ export const addPreset = (
     ...overrides,
     id,
     builtin: false,
-    targetBytes: null,
   };
   const errors = Object.values(validatePreset(preset, s.presets));
   if (errors.length > 0) throw new Error(errors.join('；'));

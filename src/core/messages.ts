@@ -18,6 +18,8 @@ export type ToBackground =
       presetId?: string;
     }
   | { target: 'background'; type: 'job:cancel'; requestId: string }
+  /** 按钮右键菜单的「管理预设…」：content script 不能直接打开设置页 */
+  | { target: 'background'; type: 'options:open' }
   | { target: 'background'; type: 'job:progress'; jobId: string; stage: JobStage; ratio: number }
   | { target: 'background'; type: 'job:done'; jobId: string; blobUrl: string; params: FinalParams }
   | { target: 'background'; type: 'job:error'; jobId: string; message: string };
@@ -42,9 +44,15 @@ export type ToContent =
   /** mediaId 缺省表示整个请求失败（例如 background 读设置出错），所有未完成的 GIF 都算失败 */
   | { target: 'content'; type: 'job:error'; requestId: string; mediaId?: string; message: string };
 
+/** background → content script：浏览器右键菜单点了「保存为 GIF」（M2-5）。srcUrl 是右键在视频上时的地址 */
+export type ContentCommand = { target: 'content'; type: 'context:save'; srcUrl?: string };
+
 const targetIs = (msg: unknown, target: string): boolean =>
   typeof msg === 'object' && msg !== null && (msg as { target?: unknown }).target === target;
 
 export const isToBackground = (msg: unknown): msg is ToBackground => targetIs(msg, 'background');
 export const isToOffscreen = (msg: unknown): msg is ToOffscreen => targetIs(msg, 'offscreen');
-export const isToContent = (msg: unknown): msg is ToContent => targetIs(msg, 'content');
+export const isToContent = (msg: unknown): msg is ToContent =>
+  targetIs(msg, 'content') && !isContentCommand(msg);
+export const isContentCommand = (msg: unknown): msg is ContentCommand =>
+  targetIs(msg, 'content') && (msg as { type?: unknown }).type === 'context:save';
