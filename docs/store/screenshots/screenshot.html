@@ -1,0 +1,123 @@
+<!doctype html>
+<!--
+  Chrome 应用商店截图（1280×800）排版模板：左边标题与说明，右边放 src/ 下的界面截图。
+  地址参数：?shot=save|menu|presets|custom&lang=en|zh，截图文件为 src/<图名>-<lang>.jpg
+  导出 PNG：node scripts/render-promo.mjs（见 docs/store/LISTING.md「素材」）
+-->
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>X GIF Saver screenshot</title>
+    <style>
+      * {
+        box-sizing: border-box;
+        margin: 0;
+      }
+      html,
+      body {
+        width: 1280px;
+        height: 800px;
+        overflow: hidden;
+      }
+      body {
+        display: grid;
+        grid-template-columns: 420px 1fr;
+        align-items: center;
+        gap: 56px;
+        padding: 0 64px 0 72px;
+        background:
+          radial-gradient(520px 420px at 72% 50%, rgb(255 255 255 / 0.08), transparent 70%),
+          #0b0d10;
+        color: #fff;
+        font-family:
+          -apple-system, BlinkMacSystemFont, "SF Pro Display", "PingFang SC", "Helvetica Neue", sans-serif;
+        -webkit-font-smoothing: antialiased;
+      }
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 28px;
+        color: rgb(255 255 255 / 0.7);
+        font-size: 18px;
+        font-weight: 700;
+      }
+      .brand img {
+        width: 40px;
+        height: 40px;
+        border-radius: 8px;
+        box-shadow: 0 0 0 1px rgb(255 255 255 / 0.22);
+      }
+      h1 {
+        font-size: 46px;
+        font-weight: 800;
+        line-height: 1.12;
+        letter-spacing: -0.015em;
+      }
+      h1 em {
+        font-style: normal;
+        background: linear-gradient(90deg, #ff5f6d, #ffc371);
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+      }
+      p {
+        margin-top: 20px;
+        font-size: 20px;
+        line-height: 1.5;
+        color: rgb(255 255 255 / 0.68);
+      }
+      .frame {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 680px;
+      }
+      .frame img {
+        max-width: 100%;
+        max-height: 100%;
+        border-radius: 18px;
+        box-shadow:
+          0 0 0 1.5px rgb(255 255 255 / 0.16),
+          0 24px 64px rgb(0 0 0 / 0.7);
+      }
+    </style>
+  </head>
+  <body>
+    <div>
+      <div class="brand"><img src="../../../public/icons/icon.svg" alt="" />X GIF Saver</div>
+      <h1 id="title">X GIF Saver</h1>
+      <p id="desc"></p>
+    </div>
+    <div class="frame"><img id="shot" alt="" /></div>
+    <script>
+      // 标题里用 *…* 标出强调色的词
+      const copy = {
+        save: {
+          en: ['Save any GIF in *one click*', 'A Save GIF button in the action bar turns X’s MP4 back into a real .gif, right in your browser.'],
+          zh: ['*一键*保存 GIF', '操作栏里多一个「存 GIF」按钮，在浏览器本地把 X 的 MP4 转回真正的 .gif。'],
+        },
+        menu: {
+          en: ['Pick a preset *just this once*', 'Right-click the button to save with another preset. Your default stays the same.'],
+          zh: ['*临时*换个预设', '右键按钮选一个预设，只用于这一次，默认预设保持不变。'],
+        },
+        presets: {
+          en: ['Ready-made *presets*', 'Original, Balanced and Sticker are built in. The one you select is used for every click.'],
+          zh: ['预设*随用随选*', '内置原画、均衡、表情包三种，选中的预设用于每次点击保存。'],
+        },
+        custom: {
+          en: ['Make it *fit*', 'Set the size, frame rate, colors and a file size limit. Too big? It re-encodes until it fits.'],
+          zh: ['体积*自己定*', '自定义尺寸、帧率、颜色数和体积上限；超出时自动降低参数重新转换。'],
+        },
+      };
+      const params = new URLSearchParams(location.search);
+      const shot = params.get('shot') in copy ? params.get('shot') : 'save';
+      const lang = params.get('lang') === 'zh' ? 'zh' : 'en';
+      const [title, desc] = copy[shot][lang];
+      document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en';
+      document.getElementById('title').innerHTML = title.replace(/\*(.+?)\*/g, '<em>$1</em>');
+      document.getElementById('desc').textContent = desc;
+      document.getElementById('shot').src = `src/${shot}-${lang}.jpg`;
+    </script>
+  </body>
+</html>

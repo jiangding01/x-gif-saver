@@ -154,11 +154,16 @@ PR 合入 main 后这个链接才能打开，提交审核前先点一下确认�
 
 ## 4. 素材
 
-| 素材     | 规格                        | 状态                                                                     |
-| -------- | --------------------------- | ------------------------------------------------------------------------ |
-| 商店图标 | 128×128 PNG                 | 已有 `public/icons/icon128.png`                                          |
-| 截图     | 1280×800 或 640×400，1–5 张 | 待做                                                                     |
-| 小宣传图 | 440×280                     | 已有 `docs/store/promo/small-tile-{en,zh}.png`，中英文列表各传对应的一张 |
-| 大宣传图 | 1400×560                    | 可选                                                                     |
+| 素材     | 规格                        | 状态                                                                                              |
+| -------- | --------------------------- | ------------------------------------------------------------------------------------------------- |
+| 商店图标 | 128×128 PNG                 | 已有 `public/icons/icon128.png`                                                                   |
+| 截图     | 1280×800 或 640×400，1–5 张 | 已有 `docs/store/screenshots/{1..4}-*-{en,zh}.png`，按序号顺序上传，中英文列表各传对应语言的 4 张 |
+| 小宣传图 | 440×280                     | 已有 `docs/store/promo/small-tile-{en,zh}.png`，中英文列表各传对应的一张                          |
+| 大宣传图 | 1400×560                    | 可选                                                                                              |
 
-小宣传图的源文件是 `docs/store/promo/small-tile.html`（`?lang=en` / `?lang=zh` 切换语言）。改完后运行 `node scripts/render-promo.mjs` 重新导出 PNG，首次运行前先 `pnpm exec playwright install chromium`。
+小宣传图和截图都用 HTML 排版后导出，运行 `node scripts/render-promo.mjs` 一次导出全部 PNG（不带透明通道，符合商店要求），首次运行前先 `pnpm exec playwright install chromium`：
+
+- 小宣传图：`docs/store/promo/small-tile.html`（`?lang=en` / `?lang=zh` 切换语言）
+- 截图：`docs/store/screenshots/screenshot.html` 负责左侧标题和说明（文案写在文件里），右侧放 `src/<图名>-<lang>.jpg` 界面截图；图名为 `save`、`menu`、`presets`、`custom`。界面改版后重拍对应截图、裁掉无关内容，替换 `src/` 里的文件再导出
+
+截图里出现的推文和账号是作者自己的（`@jiangding01`）；换用别人的推文时，头像、用户名和下载文件名里的账号要打码。
