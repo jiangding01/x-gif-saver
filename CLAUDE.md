@@ -7,7 +7,8 @@ Chrome MV3 插件：把 X 上的 GIF（实为 MP4）在本地转成 .gif 下载�
 - `pnpm check`：类型检查 + Biome + Vitest，**每次改完代码必须通过**
 - `pnpm build`：构建到 `.output/chrome-mv3`，在 `chrome://extensions` 加载已解压的扩展
 - `pnpm dev`：开发模式（自动开 Chrome + 热更新）
-- CI（`.github/workflows/ci.yml`）在 PR 和 main 上跑 `pnpm install --frozen-lockfile` + `pnpm check` + `pnpm build`；升级 Action 时 SHA 和版本注释一起改（`release.yml` 同步改）
+- `pnpm test:e2e`：构建后用 Playwright 跑端到端测试（首次先 `pnpm exec playwright install chromium`）；不访问真实网络，做法与限制见 `e2e/README.md`。改了按钮、菜单、消息或下载流程要跑一遍
+- CI（`.github/workflows/ci.yml`）在 PR 和 main 上跑 `pnpm install --frozen-lockfile` + `pnpm check` + `pnpm build`，另起 e2e job 跑 `pnpm test:e2e`（失败时上传 `test-results/`）；升级 Action 时 SHA 和版本注释一起改（`release.yml` 同步改）
 - 发版：版本号与 CHANGELOG 随 PR 合入 main → 在 main 上打 `vX.Y.Z` 附注标签并推送（需用户同意）→ `release.yml` 校验标签与 `package.json` 一致、跑检查、打包 `x-gif-saver-vX.Y.Z.zip`、以 CHANGELOG 对应段落创建**草稿** Release → 按 `/write` 中文发布说明规范润色正文 → 用户确认后发布
 - `.wxt/` 缺失导致类型报错时：`pnpm wxt prepare`（pnpm 12 下 postinstall 不一定执行，`pnpm compile` 已内置 prepare）
 
@@ -25,7 +26,7 @@ Chrome MV3 插件：把 X 上的 GIF（实为 MP4）在本地转成 .gif 下载�
 
 ## 流程
 
-- 每个 ROADMAP 任务：从 main 切 `feat/` 分支 → 先出技术方案并评审 → 开发 → `pnpm check` + `pnpm build` + 按「完成标准」手动验收 → 代码审查修到无阻塞问题 → 勾选 ROADMAP、更新 CHANGELOG、方案变动追加到 TECH-DESIGN「决策记录」→ 提交推送、开 PR → 问用户是否合并（用户手动合并，合并后切回 main 拉取并清理本地分支）
+- 每个 ROADMAP 任务：从 main 切 `feat/` 分支 → 先出技术方案并评审 → 开发 → `pnpm check` + `pnpm build`（涉及按钮、菜单、消息、下载时加 `pnpm test:e2e`）+ 按「完成标准」手动验收 → 代码审查修到无阻塞问题 → 勾选 ROADMAP、更新 CHANGELOG、方案变动追加到 TECH-DESIGN「决策记录」→ 提交推送、开 PR → 问用户是否合并（用户手动合并，合并后切回 main 拉取并清理本地分支）
 - 每次改代码后核对文档与代码一致：`package.json` 版本（manifest 由它生成）、README（当前状态、功能表、目录、命令）、CHANGELOG、TECH-DESIGN（目录、关键事实、风险、决策记录）、ROADMAP；版本号：新增功能或修复用户可感知的问题时在该 PR 内升 patch（0.0.x），CHANGELOG 把对应条目从「Unreleased」移到新版本段落；纯文档/CI/重构不升；里程碑结束按 ROADMAP 升 minor（M1 → 0.1.0）
 - commit message 用简体中文多行：做了什么 / 如何验证 / 如何回滚
 - 仓库公开：推送前确认没有本机路径、内网地址、密钥

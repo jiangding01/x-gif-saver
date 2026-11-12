@@ -11,6 +11,7 @@
     "zip": "wxt zip",
     "compile": "wxt prepare && tsc --noEmit",
     "test": "vitest run",
+    "test:e2e": "pnpm build && playwright test",
     "lint": "biome check .",
     "lint:fix": "biome check --write .",
     "check": "pnpm compile && pnpm lint && pnpm test",
@@ -24,6 +25,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.6",
+    "@playwright/test": "1.65.0",
     "@types/node": "24.19.2",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",

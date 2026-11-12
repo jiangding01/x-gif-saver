@@ -273,6 +273,8 @@ Settings = { defaultPresetId, presets: Preset[], filenameTemplate, subfolder }
 
 **单元测试（Vitest，`pnpm test`）**：帧延迟、文件名模板与清洗（保留名、方向控制符、字节截断、未知变量）、媒体地址解析（已有）；抖动、抽帧、目标体积降级参数与完成提示、设置迁移（随功能补）。DOM 识别逻辑（`tweetTarget`、`modalTarget`）用 happy-dom 跑单测，测试片段按实测 DOM 裁剪（M1-1 起）。
 
+**端到端测试（Playwright，`pnpm test:e2e`，CI 独立 job）**：加载构建产物，在样本推文页上走完整链路（content script → background → offscreen → Worker → `chrome.downloads`），覆盖左键默认预设下载与文件名、右键预设菜单选「表情包」（尺寸与体积上限）、按钮注入失效时的右键菜单兜底与提示条。不访问真实网络：页面由 Playwright `route` 提供；Worker 的视频请求 `route` 拦不到，改用本地 HTTPS 服务（openssl 临时自签证书）+ `--host-resolver-rules`；Playwright 接管下载会绕过 `onDeterminingFilename`，测试在临时浏览器配置里设默认下载目录并恢复 Chrome 默认下载行为。细节见 `e2e/README.md`。X 真实 DOM 的变化仍靠手动验收。
+
 **手动验收**（每个里程碑结束时过一遍）：
 
 - 时间线、推文详情页、大图浏览弹窗：带 GIF 的推文出现按钮；纯文字、图片、普通视频推文不出现
@@ -344,3 +346,5 @@ Settings = { defaultPresetId, presets: Preset[], filenameTemplate, subfolder }
 | 2026-11-12 | 浏览器右键菜单按右键位置定位 GIF，并对 GIF 播放器截住右键事件                         | 只用 `contexts: ['video']`：X 可能拦截 GIF 上的右键（R4），菜单根本不出现                                           |
 | 2026-11-12 | 右键菜单兜底时没有按钮就用页面底部提示条显示进度                                      | 不提示：按钮注入失效时用户看不到任何反馈，失败也不知道                                                              |
 | 2026-11-12 | M2-6 的迁移单测改为结构守护测试                                                       | 写空迁移：M2 未改 Settings 结构，version 仍为 1                                                                     |
+| 2026-11-12 | 加 Playwright 端到端测试，CI 独立 job                                                 | 只靠单测 + 手动验收：跨上下文链路（消息、offscreen、下载命名）回归只能人工发现                                      |
+| 2026-11-12 | e2e 视频走本地 HTTPS + host 映射，不 mock 扩展内部                                    | Playwright `route`：拦不到 offscreen Worker 的请求，会打到真实 video.twimg.com                                      |
