@@ -9,6 +9,7 @@
 // 状态（ROADMAP M1-5）：任务按推文 ID 存，同一推文在时间线和弹窗里的两个按钮显示同一状态，
 // 按钮被 X 重挂后也能恢复。一次点击 = 一个请求（requestId），background 回传的消息按 requestId 路由。
 
+import { i18n } from '#i18n';
 import { browser, type ContentScriptContext, defineContentScript } from '#imports';
 import {
   type GifTarget,
@@ -20,8 +21,9 @@ import {
   TWEET_SELECTOR,
   tweetTarget,
 } from '../adapters/x';
+import type { JobError } from '../core/errors';
 import { isContentCommand, isToContent, type ToBackground, type ToContent } from '../core/messages';
-import { describePreset } from '../core/presets';
+import { describePreset, presetName } from '../core/presets';
 import { resolvePreset, settingsItem } from '../core/settings';
 import type { GifSource } from '../core/types';
 import {
@@ -100,17 +102,17 @@ export default defineContentScript({
       const view = currentView(tweetId);
       switch (view.kind) {
         case 'queued':
-          toast.show('排队中…');
+          toast.show(i18n.t('toast.queued'));
           return;
         case 'progress':
-          toast.show(view.label.replace('，点击取消', ''));
+          toast.show(view.status);
           return;
         case 'done':
-          toast.show(view.label, 'info', TOAST_DONE_MS);
+          toast.show(view.status, 'info', TOAST_DONE_MS);
           toastKey = null;
           return;
         case 'error':
-          toast.show(view.label.replace('，点击重试', ''), 'error', TOAST_DONE_MS);
+          toast.show(view.status, 'error', TOAST_DONE_MS);
           toastKey = null;
           return;
         case 'idle':
@@ -152,7 +154,7 @@ export default defineContentScript({
     };
 
     /** 本地判一个请求失败（发送失败、超时），之后到达的该请求消息一律丢弃 */
-    const failLocally = (tweetId: string, message: string) => {
+    const failLocally = (tweetId: string, error: JobError) => {
       const entry = tasks.get(tweetId);
       if (!entry) return;
       tweetByRequest.delete(entry.task.requestId);
@@ -160,7 +162,7 @@ export default defineContentScript({
         target: 'content',
         type: 'job:error',
         requestId: entry.task.requestId,
-        message,
+        error,
       });
       refresh(tweetId);
     };
@@ -180,7 +182,7 @@ export default defineContentScript({
         sources,
         ...(preset ? { presetId: preset.id } : {}),
       });
-      if (!ok) failLocally(tweetId, '扩展已更新，请刷新页面后重试');
+      if (!ok) failLocally(tweetId, { code: 'extensionUpdated' });
     };
 
     const cancel = (tweetId: string) => {
@@ -242,7 +244,7 @@ export default defineContentScript({
               button,
               settings.presets.map((p) => ({
                 id: p.id,
-                name: p.name,
+                name: presetName(p),
                 detail: describePreset(p),
                 isDefault: p.id === fallback.id,
               })),
@@ -260,7 +262,7 @@ export default defineContentScript({
                   void start(
                     tweetId,
                     state === 'error' && entry ? failedSources(entry.task) : now.sources,
-                    picked ? { id: picked.id, name: picked.name } : undefined,
+                    picked ? { id: picked.id, name: presetName(picked) } : undefined,
                   );
                 },
                 onManage: () => void send({ target: 'background', type: 'options:open' }),
@@ -286,7 +288,7 @@ export default defineContentScript({
         if (mediaId) sources = [{ mediaId, mp4Url: mp4UrlFor(mediaId), author: '', tweetId: '' }];
       }
       if (!sources || sources.length === 0) {
-        toast.show('这里没有找到 GIF：请在 GIF 或带 GIF 的推文上右键', 'error', TOAST_DONE_MS);
+        toast.show(i18n.t('toast.noGif'), 'error', TOAST_DONE_MS);
         return;
       }
       const first = sources[0] as GifSource;
@@ -294,8 +296,7 @@ export default defineContentScript({
       const key = first.tweetId || first.mediaId;
       const kind = viewOf(tasks.get(key)?.task ?? null).kind;
       if (kind === 'queued' || kind === 'progress') {
-        if (!buttonsByTweet.get(key)?.size)
-          toast.show('这条推文的 GIF 正在转换', 'info', TOAST_DONE_MS);
+        if (!buttonsByTweet.get(key)?.size) toast.show(i18n.t('toast.busy'), 'info', TOAST_DONE_MS);
         return;
       }
       lastClickAt.set(key, Date.now());
@@ -334,7 +335,7 @@ export default defineContentScript({
       for (const [tweetId, entry] of tasks) {
         if (!isRunning(entry.task) || now - entry.lastEventAt < STALL_TIMEOUT_MS) continue;
         void send({ target: 'background', type: 'job:cancel', requestId: entry.task.requestId });
-        failLocally(tweetId, '转换超时');
+        failLocally(tweetId, { code: 'timeout' });
       }
     }, WATCHDOG_INTERVAL_MS);
 

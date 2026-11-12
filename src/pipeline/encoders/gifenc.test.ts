@@ -255,7 +255,9 @@ describe('gifencEncoder', () => {
 
   it('frames() 产出的帧数与 frameCount 不符时报错', async () => {
     const input = { ...inputOf([5, 5]), frameCount: 3 };
-    await expect(gifencEncoder.encode(input, options('bayer'))).rejects.toThrow('帧数不对');
+    await expect(gifencEncoder.encode(input, options('bayer'))).rejects.toThrow(
+      'frame count mismatch',
+    );
   });
 });
 

@@ -8,7 +8,7 @@ X turns uploaded GIFs into MP4 videos, so there is no "Save as GIF" on the web. 
 
 ![Demo: click the Save GIF button and the GIF lands in the X-GIF folder of your downloads](docs/media/demo.gif)
 
-> Status: **v0.2.0**, not on the Chrome Web Store yet; load it by following [Install](#install). The extension UI is currently in Simplified Chinese only; English UI is in progress. GIFs are saved to `X-GIF/<tweetId>_<author>.gif` in your downloads folder by default. The options page lets you manage conversion presets (size, frame rate, colors, dithering, size limit) and change the folder and file name. Right-click the button to use a different preset once; the browser's context menu works as a fallback. See the [roadmap](docs/ROADMAP.md) (Chinese) for what's next.
+> Status: **v0.2.1**, not on the Chrome Web Store yet; load it by following [Install](#install). The UI is available in English and Simplified Chinese and follows your browser language. GIFs are saved to `X-GIF/<tweetId>_<author>.gif` in your downloads folder by default. The options page lets you manage conversion presets (size, frame rate, colors, dithering, size limit) and change the folder and file name. Right-click the button to use a different preset once; the browser's context menu works as a fallback. See the [roadmap](docs/ROADMAP.md) (Chinese) for what's next.
 
 ## Features
 
@@ -22,6 +22,7 @@ X turns uploaded GIFs into MP4 videos, so there is no "Save as GIF" on the web. 
 | Size limit: if the GIF is too large, it is re-encoded with fewer colors, a lower frame rate and a smaller size; you are told if the limit still can't be met                     | ✅ Done |
 | File name template and folder: tweet ID, author and date variables, per-author folders, live preview while typing                                                                | ✅ Done |
 | "Save as GIF" in the browser's context menu (fallback when the action bar button is missing)                                                                                     | ✅ Done |
+| English and Simplified Chinese UI, following the browser language                                                                                                                | ✅ Done |
 
 Direct messages (XChat) have no tweet action bar, so the button doesn't appear there.
 
@@ -81,6 +82,7 @@ src/
   pipeline/      Conversion pipeline (runs in a Worker) and encoders; __fixtures__/ holds synthetic test samples
   ui/            Action bar button, right-click preset menu, fallback progress toast (Shadow DOM)
   entrypoints/   background / content script / offscreen / options page
+  locales/       UI text: en.json (default) and zh_CN.json, keep the keys in sync
 public/icons/    Extension icons (16/32/48/128 PNG + source icon.svg)
 e2e/             End-to-end tests (Playwright, sample page and notes)
 docs/
@@ -98,6 +100,7 @@ Design docs and the changelog are written in Chinese.
 - [Technical design](docs/TECH-DESIGN.md): architecture, pipeline, settings schema, permissions, risks, decision log
 - [Roadmap](docs/ROADMAP.md): milestones and acceptance criteria
 - [CHANGELOG](CHANGELOG.md)
+- [Privacy policy](PRIVACY.md) (English and Chinese)
 
 ## Privacy
 

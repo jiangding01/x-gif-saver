@@ -8,7 +8,7 @@ import {
   type ShadowRootContentScriptUi,
 } from '#imports';
 import { createPresetMenu, MENU_STYLE, type PresetMenu } from './presetMenu';
-import { type ButtonKind, type ButtonView, IDLE_VIEW } from './state';
+import { type ButtonKind, type ButtonView, idleView } from './state';
 
 const BLUE = 'rgb(29, 155, 240)';
 /** X 的成功绿与错误红 */
@@ -135,7 +135,7 @@ export const renderButton = (ui: SaveButton, view: ButtonView): void => {
   }
   button.title = view.label;
   // 转换中的百分比只放在 title：aria-label 每 1% 变一次会让读屏反复朗读
-  button.setAttribute('aria-label', view.kind === 'progress' ? '转换中，点击取消' : view.label);
+  button.setAttribute('aria-label', view.aria);
   button.setAttribute('aria-busy', String(view.kind === 'queued' || view.kind === 'progress'));
 };
 
@@ -155,7 +155,7 @@ export const mountSaveButton = async (
   actionBar: Element,
   onClick: () => void,
   onContextMenu: ContextMenuHandler,
-  initial: ButtonView = IDLE_VIEW,
+  initial: ButtonView = idleView(),
 ): Promise<SaveButton> => {
   const ui = await createShadowRootUi(ctx, {
     name: 'xgs-save-button',

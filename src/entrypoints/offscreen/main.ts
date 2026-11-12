@@ -45,7 +45,7 @@ const onWorkerMessage = (event: MessageEvent<WorkerOut>) => {
       target: 'background',
       type: 'job:error',
       jobId: msg.jobId,
-      message: msg.message,
+      error: msg.error,
     });
   }
   running = null;
@@ -68,7 +68,7 @@ const createWorker = (): Worker => {
         target: 'background',
         type: 'job:error',
         jobId,
-        message: `转换进程异常退出：${event.message || '未知错误'}`,
+        error: { code: 'workerCrashed', ...(event.message ? { detail: event.message } : {}) },
       });
     }
     pump();
@@ -94,7 +94,7 @@ browser.runtime.onMessage.addListener((msg: unknown) => {
           target: 'background',
           type: 'job:error',
           jobId: msg.jobId,
-          message: '已取消',
+          error: { code: 'cancelled' },
         });
       } else if (running === msg.jobId) {
         toWorker({ type: 'cancel', jobId: msg.jobId });

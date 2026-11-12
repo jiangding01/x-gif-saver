@@ -179,7 +179,7 @@ describe('decodeFrames', () => {
         frame.close();
       }
     };
-    await expect(run()).rejects.toThrow('视频解码失败：模拟解码错误');
+    await expect(run()).rejects.toMatchObject({ code: 'decodeFailed', detail: '模拟解码错误' });
   });
 
   it('不保留的帧在输出时立即 close，不交给调用方', async () => {
@@ -216,7 +216,7 @@ describe('decodeFrames', () => {
     expect(state.decoder?.closeCalls).toBe(1);
   });
 
-  it('解码出错转成中文报错，并释放资源', async () => {
+  it('解码出错报 decodeFailed（带原始信息），并释放资源', async () => {
     const { deps, frames } = fakeDeps({ failAt: 300_000 });
     const run = async () => {
       for await (const frame of decodeFrames(
@@ -228,7 +228,7 @@ describe('decodeFrames', () => {
         frame.close();
       }
     };
-    await expect(run()).rejects.toThrow('视频解码失败：模拟解码错误');
+    await expect(run()).rejects.toMatchObject({ code: 'decodeFailed', detail: '模拟解码错误' });
     expect(frames.every((f) => f.closed)).toBe(true);
   });
 
@@ -236,7 +236,7 @@ describe('decodeFrames', () => {
     const { deps, state } = fakeDeps({ supported: false });
     const spy = vi.spyOn(deps, 'createDecoder');
     const gen = decodeFrames(video(3), new AbortController().signal, keepAll, deps);
-    await expect(gen.next()).rejects.toThrow('当前浏览器不支持 H.264 解码（avc1.64001e）');
+    await expect(gen.next()).rejects.toMatchObject({ code: 'noH264', detail: 'avc1.64001e' });
     expect(spy).not.toHaveBeenCalled();
     expect(state.decoder).toBeNull();
   });

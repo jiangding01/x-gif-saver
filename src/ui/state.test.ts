@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import type { JobError } from '../core/errors';
 import type { ToContent } from '../core/messages';
 import type { FinalParams, GifSource } from '../core/types';
 import {
@@ -43,11 +44,11 @@ const done = (mediaId: string, bytes = 1_802_000): ToContent => ({
   mediaId,
   params: params(bytes),
 });
-const error = (message: string, mediaId?: string): ToContent => ({
+const error = (err: JobError, mediaId?: string): ToContent => ({
   target: 'content',
   type: 'job:error',
   requestId: R,
-  message,
+  error: err,
   ...(mediaId === undefined ? {} : { mediaId }),
 });
 const apply = (task: Task, ...msgs: ToContent[]) => msgs.reduce(applyMessage, task);
@@ -56,8 +57,16 @@ describe('viewOf：单个 GIF', () => {
   const task = createTask(R, [source('A')]);
 
   it('没有任务 → 空闲；刚点击 → 排队（不等 background 回应）', () => {
-    expect(viewOf(null)).toMatchObject({ kind: 'idle', label: '保存为 GIF，右键可选预设' });
-    expect(viewOf(task)).toMatchObject({ kind: 'queued', label: '排队中，点击取消' });
+    // 单测按英文文案断言（src/testing/i18n.ts）
+    expect(viewOf(null)).toMatchObject({
+      kind: 'idle',
+      label: 'Save as GIF · right-click for presets',
+    });
+    expect(viewOf(task)).toMatchObject({
+      kind: 'queued',
+      label: 'Queued · click to cancel',
+      status: 'Queued',
+    });
   });
 
   it('进度 → 进度环与百分比；完成 → ✓ 与体积、尺寸、帧率', () => {
@@ -65,17 +74,24 @@ describe('viewOf：单个 GIF', () => {
     const view = viewOf(apply(task, progress('A', 0.42)));
     expect(view.kind).toBe('progress');
     expect(view.ratio).toBeCloseTo(0.436);
-    expect(view.label).toBe('转换中 43%，点击取消');
+    expect(view.label).toBe('Converting 43% · click to cancel');
+    // 提示条用不带操作提示的 status；aria-label 不带百分比
+    expect(view.status).toBe('Converting 43%');
+    expect(view.aria).toBe('Converting · click to cancel');
     expect(viewOf(apply(task, progress('A', 0.5), done('A')))).toMatchObject({
       kind: 'done',
-      label: '已保存 1.7MB · 480×480 · 20fps',
+      label: 'Saved 1.7MB · 480×480 · 20fps',
     });
   });
 
   it('失败 → 显示原因并提示重试；完成后迟到的进度不会改回转换中', () => {
-    expect(viewOf(apply(task, error('下载 GIF 视频失败：HTTP 404', 'A')))).toMatchObject({
+    // 错误码在收到时翻译，技术细节原样跟在后面
+    expect(
+      viewOf(apply(task, error({ code: 'fetchFailed', detail: 'HTTP 404' }, 'A'))),
+    ).toMatchObject({
       kind: 'error',
-      label: '失败：下载 GIF 视频失败：HTTP 404，点击重试',
+      label: "Failed: Couldn't download the GIF video (HTTP 404) · click to retry",
+      status: "Failed: Couldn't download the GIF video (HTTP 404)",
     });
     expect(viewOf(apply(task, done('A'), progress('A', 0.3))).kind).toBe('done');
   });
@@ -100,47 +116,47 @@ describe('viewOf：同一推文多个 GIF', () => {
     expect(viewOf(apply(task, done('A', 500_000))).kind).toBe('progress');
     expect(viewOf(apply(task, done('A', 500_000), done('B', 700_000)))).toMatchObject({
       kind: 'done',
-      label: '已保存 2 个 GIF · 共 1.1MB',
+      label: 'Saved 2 GIFs · 1.1MB total',
     });
   });
 
   it('一个失败、其余结束后显示失败；重试只重跑失败项', () => {
-    const halfFailed = apply(task, error('超时', 'B'));
+    const halfFailed = apply(task, error({ code: 'timeout' }, 'B'));
     // 另一个还在排队：失败的按已结束计入，整体显示 50% 进度，等全部结束再显示失败
     expect(viewOf(halfFailed)).toMatchObject({ kind: 'progress', ratio: 0.5 });
     const settled = apply(halfFailed, done('A'));
     expect(isSettled(settled)).toBe(true);
     expect(viewOf(settled)).toMatchObject({
       kind: 'error',
-      label: '1 个 GIF 失败：超时，点击重试',
+      label: '1 of 2 GIFs failed: Conversion timed out · click to retry',
     });
     expect(failedSources(settled).map((s) => s.mediaId)).toEqual(['B']);
   });
 
   it('不带 mediaId 的错误让整个请求失败（例如 background 启动失败）', () => {
-    const failed = apply(task, done('A'), error('无法启动转换'));
+    const failed = apply(task, done('A'), error({ code: 'startFailed', detail: 'boom' }));
     expect(failedSources(failed).map((s) => s.mediaId)).toEqual(['B']);
-    expect(viewOf(failed).label).toContain('无法启动转换');
+    expect(viewOf(failed).label).toContain("Couldn't start the conversion (boom)");
   });
 });
 
 describe('右键菜单选的预设', () => {
-  const picked = { id: 'sticker', name: '表情包' };
+  const picked = { id: 'sticker', name: 'Sticker' };
 
   it('完成提示带上预设名；默认预设不带', () => {
     const task = createTask(R, [source('A')], picked);
     expect(viewOf(apply(task, done('A')))).toMatchObject({
-      label: '已保存（表情包）1.7MB · 480×480 · 20fps',
+      label: 'Saved (Sticker) 1.7MB · 480×480 · 20fps',
     });
     const two = createTask(R, [source('A'), source('B')], picked);
     expect(viewOf(apply(two, done('A'), done('B'))).label).toBe(
-      '已保存（表情包）2 个 GIF · 共 3.4MB',
+      'Saved (Sticker) 2 GIFs · 3.4MB total',
     );
     expect(createTask(R, [source('A')])).not.toHaveProperty('preset');
   });
 
   it('任务记住预设，失败重试可以沿用', () => {
-    const task = apply(createTask(R, [source('A')], picked), error('网络错误', 'A'));
+    const task = apply(createTask(R, [source('A')], picked), error({ code: 'fetchFailed' }, 'A'));
     expect(task.preset).toEqual(picked);
     expect(failedSources(task).map((s) => s.mediaId)).toEqual(['A']);
   });
@@ -165,7 +181,7 @@ describe('目标体积（M2-4）', () => {
       stage: 'shrinking',
       ratio: 0.5,
     });
-    expect(viewOf(task).label).toBe('超出体积上限，压缩中 95%，点击取消');
+    expect(viewOf(task).label).toBe('Over the size limit, compressing 95% · click to cancel');
   });
 
   it('首次就达标：提示不变', () => {
@@ -173,16 +189,16 @@ describe('目标体积（M2-4）', () => {
       createTask(R, [source('A')]),
       withTarget(900_000, 127, { limit: MB, met: true, degraded: false }),
     );
-    expect(viewOf(task).label).toBe('已保存 879KB · 240×240 · 10fps');
+    expect(viewOf(task).label).toBe('Saved 879KB · 240×240 · 10fps');
   });
 
   it('降级后达标：带上最终颜色数并说明降低了画质', () => {
     const task = apply(
-      createTask(R, [source('A')], { id: 'sticker', name: '表情包' }),
+      createTask(R, [source('A')], { id: 'sticker', name: 'Sticker' }),
       withTarget(900_000, 63, { limit: MB, met: true, degraded: true }),
     );
     expect(viewOf(task).label).toBe(
-      '已保存（表情包）879KB · 240×240 · 10fps · 63 色（已降低画质压到 1MB 以内）',
+      'Saved (Sticker) 879KB · 240×240 · 10fps · 63 colors (quality lowered to stay under 1MB)',
     );
   });
 
@@ -192,7 +208,7 @@ describe('目标体积（M2-4）', () => {
       withTarget(121 * 1024, 63, { limit: 0.1 * MB, met: false, degraded: true }),
     );
     expect(viewOf(task).label).toBe(
-      '已保存 121KB · 240×240 · 10fps · 63 色（未能压到 0.1MB 以内）',
+      "Saved 121KB · 240×240 · 10fps · 63 colors (couldn't get under 0.1MB)",
     );
   });
 
@@ -203,7 +219,7 @@ describe('目标体积（M2-4）', () => {
     );
     expect(viewOf(task)).toMatchObject({
       kind: 'done',
-      label: '已保存 1.4MB · 240×240 · 10fps · 63 色（未能压到 1MB 以内）',
+      label: "Saved 1.4MB · 240×240 · 10fps · 63 colors (couldn't get under 1MB)",
     });
   });
 });
@@ -258,7 +274,9 @@ describe('进度跨阶段单调', () => {
 
   it('请求级错误之后迟到的进度不会把失败改回转换中', () => {
     const task = createTask(R, [source('A')]);
-    expect(viewOf(apply(task, error('无法启动转换'), progress('A', 0.5))).kind).toBe('error');
+    expect(viewOf(apply(task, error({ code: 'startFailed' }), progress('A', 0.5))).kind).toBe(
+      'error',
+    );
   });
 });
 

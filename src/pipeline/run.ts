@@ -53,7 +53,7 @@ export const runJob = async (
   ): Promise<RunResult> => {
     const canvas = new OffscreenCanvas(width, height);
     const maybeCtx = canvas.getContext('2d', { willReadFrequently: true });
-    if (!maybeCtx) throw new Error('无法创建画布');
+    if (!maybeCtx) throw new Error('cannot create a 2D canvas');
     // 另存为非空常量：生成器函数里拿不到外层的空值收窄
     const ctx: OffscreenCanvasRenderingContext2D = maybeCtx;
     ctx.imageSmoothingQuality = 'high';
@@ -70,7 +70,7 @@ export const runJob = async (
           frame.close();
         }
         const delayCs = plan.get(timestampUs);
-        if (delayCs === undefined) throw new Error(`解码出了计划外的帧：${timestampUs}µs`);
+        if (delayCs === undefined) throw new Error(`unplanned frame decoded: ${timestampUs}µs`);
         yield { data, width, height, delayCs };
       }
     }

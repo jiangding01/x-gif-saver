@@ -2,6 +2,7 @@
 // 全部返回新对象、不改入参；调用方应先读存储里的最新值再套用（见 options/useSettings.ts），
 // 避免多个标签页或其他设置区块的写入互相覆盖。
 
+import { i18n } from '#i18n';
 import { BUILTIN_PRESETS } from './defaults';
 import type { Preset, Settings } from './types';
 
@@ -25,15 +26,41 @@ export const toMB = (bytes: number): string => String(Math.round((bytes / MB) * 
 /** MB → 字节，按 0.1MB 取整 */
 export const fromMB = (mb: number): number => Math.round(Math.round(mb * 10) * (MB / 10));
 
+/**
+ * 显示用的预设名。内置预设不能改名，名字按 id 取当前语言的译名（存储里的 name 只是占位）；
+ * 自定义预设用用户填的名字
+ */
+export const presetName = (p: Pick<Preset, 'id' | 'name' | 'builtin'>): string => {
+  if (!p.builtin) return p.name;
+  switch (p.id) {
+    case 'original':
+      return i18n.t('preset.original');
+    case 'balanced':
+      return i18n.t('preset.balanced');
+    case 'sticker':
+      return i18n.t('preset.sticker');
+    default:
+      return p.name;
+  }
+};
+
 export const describePreset = (p: Preset): string =>
   [
-    p.maxSide === null ? '原始尺寸' : `最长边 ${p.maxSide}px`,
+    p.maxSide === null
+      ? i18n.t('preset.originalSize')
+      : i18n.t('preset.maxSide', [String(p.maxSide)]),
     // ≤ 后用不换行空格：窄处换行时不把「≤」和数字拆到两行
-    p.fpsCap === null ? '原帧率' : `≤\u00a0${p.fpsCap}fps`,
-    `${p.colors} 色`,
-    p.dither === 'bayer' ? '抖动' : '不抖动',
+    p.fpsCap === null ? i18n.t('preset.originalFps') : `≤\u00a0${p.fpsCap}fps`,
+    i18n.t('preset.colors', [String(p.colors)]),
+    p.dither === 'bayer' ? i18n.t('preset.dither') : i18n.t('preset.noDither'),
     ...(p.targetBytes === null ? [] : [`≤\u00a0${toMB(p.targetBytes)}MB`]),
   ].join(' · ');
+
+/** 范围的上下限，作为文案替换参数 */
+export const rangeOf = (range: { min: number; max: number }): [string, string] => [
+  String(range.min),
+  String(range.max),
+];
 
 const isIntIn = (v: number, range: { min: number; max: number }) =>
   Number.isInteger(v) && v >= range.min && v <= range.max;
@@ -41,32 +68,36 @@ const isIntIn = (v: number, range: { min: number; max: number }) =>
 export const validatePreset = (p: Preset, all: readonly Preset[]): PresetErrors => {
   const errors: PresetErrors = {};
   const name = p.name.trim();
-  if (!name) errors.name = '请填写名称';
-  else if (name.length > NAME_MAX_LENGTH) errors.name = `名称最多 ${NAME_MAX_LENGTH} 个字`;
-  else if (all.some((o) => o.id !== p.id && o.name.trim() === name)) errors.name = '已有同名预设';
+  if (!name) errors.name = i18n.t('preset.nameRequired');
+  else if (name.length > NAME_MAX_LENGTH)
+    errors.name = i18n.t('preset.nameTooLong', [String(NAME_MAX_LENGTH)]);
+  // 与显示名比较：内置预设按当前语言的译名算
+  else if (all.some((o) => o.id !== p.id && presetName(o).trim() === name))
+    errors.name = i18n.t('preset.nameTaken');
   if (p.maxSide !== null && !isIntIn(p.maxSide, MAX_SIDE_RANGE)) {
-    errors.maxSide = `请输入 ${MAX_SIDE_RANGE.min}–${MAX_SIDE_RANGE.max} 的整数，留空表示原始尺寸`;
+    errors.maxSide = i18n.t('preset.maxSideRange', rangeOf(MAX_SIDE_RANGE));
   }
   if (p.fpsCap !== null && !isIntIn(p.fpsCap, FPS_CAP_RANGE)) {
-    errors.fpsCap = `请输入 ${FPS_CAP_RANGE.min}–${FPS_CAP_RANGE.max} 的整数，留空表示原帧率`;
+    errors.fpsCap = i18n.t('preset.fpsRange', rangeOf(FPS_CAP_RANGE));
   }
   if (
     p.targetBytes !== null &&
     !(p.targetBytes >= fromMB(TARGET_MB_RANGE.min) && p.targetBytes <= fromMB(TARGET_MB_RANGE.max))
   ) {
-    errors.targetBytes = `请输入 ${TARGET_MB_RANGE.min}–${TARGET_MB_RANGE.max} 的数字（MB），留空表示不限`;
+    errors.targetBytes = i18n.t('preset.targetRange', rangeOf(TARGET_MB_RANGE));
   }
   return errors;
 };
 
 export const customCount = (s: Settings): number => s.presets.filter((p) => !p.builtin).length;
 
-/** 最小的空闲「自定义 N」 */
+/** 最小的空闲「自定义 N」（按当前语言） */
 export const nextCustomName = (s: Settings): string => {
-  const used = new Set(s.presets.map((p) => p.name.trim()));
+  const used = new Set(s.presets.map((p) => presetName(p).trim()));
+  const nameOf = (n: number) => i18n.t('preset.custom', [String(n)]);
   let n = 1;
-  while (used.has(`自定义 ${n}`)) n++;
-  return `自定义 ${n}`;
+  while (used.has(nameOf(n))) n++;
+  return nameOf(n);
 };
 
 /**
@@ -81,7 +112,7 @@ export const addPreset = (
   overrides: Partial<PresetParams & Pick<Preset, 'name'>> = {},
 ): Settings => {
   if (customCount(s) >= MAX_CUSTOM_PRESETS) {
-    throw new Error(`自定义预设最多 ${MAX_CUSTOM_PRESETS} 个`);
+    throw new Error(i18n.t('preset.tooMany', [String(MAX_CUSTOM_PRESETS)]));
   }
   const preset: Preset = {
     ...base,
@@ -91,7 +122,7 @@ export const addPreset = (
     builtin: false,
   };
   const errors = Object.values(validatePreset(preset, s.presets));
-  if (errors.length > 0) throw new Error(errors.join('；'));
+  if (errors.length > 0) throw new Error(errors.join(i18n.t('save.hintSeparator')));
   return { ...s, presets: [...s.presets, preset] };
 };
 
@@ -102,7 +133,7 @@ export const updatePreset = (
   patch: Partial<Omit<Preset, 'id' | 'builtin'>>,
 ): Settings => {
   const existing = s.presets.find((p) => p.id === id);
-  if (!existing) throw new Error('该预设已被删除');
+  if (!existing) throw new Error(i18n.t('preset.deleted'));
   const { name, ...rest } = patch;
   const next: Preset = {
     ...existing,
@@ -119,7 +150,7 @@ export const fallbackDefaultId = (presets: readonly Preset[]): string =>
 export const deletePreset = (s: Settings, id: string): Settings => {
   const target = s.presets.find((p) => p.id === id);
   if (!target) return s;
-  if (target.builtin) throw new Error('内置预设不能删除');
+  if (target.builtin) throw new Error(i18n.t('preset.builtinDelete'));
   const presets = s.presets.filter((p) => p.id !== id);
   const defaultPresetId = s.defaultPresetId === id ? fallbackDefaultId(presets) : s.defaultPresetId;
   return { ...s, presets, defaultPresetId };

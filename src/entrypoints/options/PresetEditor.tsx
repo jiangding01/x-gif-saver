@@ -2,6 +2,7 @@
 // 校验不通过的值不写入，错误就近显示；正在输入的框不被其他标签页的同步覆盖。
 
 import { type KeyboardEvent, useCallback, useEffect, useRef, useState } from 'react';
+import { i18n } from '#i18n';
 import { isBuiltinModified, resetBuiltin, updatePreset, validatePreset } from '../../core/presets';
 import type { Preset } from '../../core/types';
 import {
@@ -115,11 +116,11 @@ export const PresetEditor = ({ preset, all, id, onClose, onSaved, onError }: Pro
             className="button-text"
             onClick={() => void report(mutateSettings((s) => resetBuiltin(s, preset.id)))}
           >
-            恢复出厂参数
+            {i18n.t('row.resetBuiltin')}
           </button>
         ) : null}
         <button type="button" className="button-outline" onClick={onClose}>
-          完成
+          {i18n.t('row.done')}
         </button>
       </div>
     </div>

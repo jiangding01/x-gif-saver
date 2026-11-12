@@ -3,6 +3,8 @@
 // overflow 裁掉，也不用和 X 抢 z-index；点外面、按 Esc 关闭由浏览器负责。
 // 视觉模仿 X 的下拉菜单，打开时按页面背景色适配浅色 / 暗蓝 / 纯黑主题。
 
+import { i18n } from '#i18n';
+
 export type MenuItem = { id: string; name: string; detail: string; isDefault: boolean };
 export type MenuHandlers = { onPick: (id: string) => void; onManage: () => void };
 export type Rect = { top: number; bottom: number; left: number; right: number };
@@ -141,7 +143,7 @@ export const createPresetMenu = (container: HTMLElement): PresetMenu => {
   const menu = el('div', 'menu');
   menu.popover = 'auto';
   menu.setAttribute('role', 'menu');
-  menu.setAttribute('aria-label', '用预设保存');
+  menu.setAttribute('aria-label', i18n.t('menu.title'));
   menu.tabIndex = -1;
   container.append(menu);
 
@@ -215,7 +217,7 @@ export const createPresetMenu = (container: HTMLElement): PresetMenu => {
       button.tabIndex = -1;
       button.setAttribute('role', 'menuitem');
       button.append(el('span', 'name', item.name));
-      if (item.isDefault) button.append(el('span', 'tag', '默认'));
+      if (item.isDefault) button.append(el('span', 'tag', i18n.t('menu.default')));
       button.append(el('span', 'detail', item.detail));
       button.addEventListener(
         'click',
@@ -223,14 +225,14 @@ export const createPresetMenu = (container: HTMLElement): PresetMenu => {
       );
       scroll.append(button);
     }
-    const manage = el('button', 'item manage', '管理预设…');
+    const manage = el('button', 'item manage', i18n.t('menu.manage'));
     manage.type = 'button';
     manage.tabIndex = -1;
     manage.setAttribute('role', 'menuitem');
     manage.addEventListener('click', pick(handlers.onManage));
     const sep = el('div', 'sep');
     sep.setAttribute('role', 'separator');
-    body.append(el('div', 'menu-title', '用预设保存'), scroll, sep, manage);
+    body.append(el('div', 'menu-title', i18n.t('menu.title')), scroll, sep, manage);
     menu.replaceChildren(body);
 
     // 先在屏幕外量尺寸，再定位

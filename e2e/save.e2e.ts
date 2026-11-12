@@ -62,7 +62,9 @@ const startVideoServer = async (dir: string): Promise<number> => {
   return (videoServer.address() as AddressInfo).port;
 };
 
-test.beforeAll(async () => {
+// biome-ignore lint/correctness/noEmptyPattern: Playwright 要求第一个参数写成解构形式，这里不用任何 fixture
+test.beforeAll(async ({}, testInfo) => {
+  const lang = testInfo.project.name;
   userDataDir = await mkdtemp(path.join(tmpdir(), 'xgs-e2e-'));
   const port = await startVideoServer(userDataDir);
   // 默认下载目录放进临时目录：测试里恢复 Chrome 的默认下载行为，文件名才走扩展的 onDeterminingFilename
@@ -82,8 +84,15 @@ test.beforeAll(async () => {
       `--load-extension=${EXTENSION}`,
       `--host-resolver-rules=MAP video.twimg.com 127.0.0.1:${port}`,
       '--ignore-certificate-errors',
+      `--lang=${lang}`,
     ],
+    env: { ...process.env, LANGUAGE: lang.replace('-', '_') },
   });
+  // CI（Linux）上必须真的切到了该语言，否则两个项目测的是同一种语言
+  if (process.platform === 'linux') {
+    const ui = await (await extensionWorker()).evaluate(() => chrome.i18n.getUILanguage());
+    expect(ui).toBe(lang);
+  }
   const html = await readFile(path.join(import.meta.dirname, 'fixtures/tweet.html'), 'utf8');
   await context.route('**/*', async (route) => {
     const url = new URL(route.request().url());
@@ -118,6 +127,15 @@ const openTweet = async (query = ''): Promise<Page> => {
 const extensionWorker = async () =>
   context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
 
+/** 扩展当前界面语言下的文案（与 chrome.i18n 规则一致：键名里的 . 换成 _） */
+const t = async (key: string, substitutions: string[] = []) =>
+  (await extensionWorker()).evaluate(([name, subs]) => chrome.i18n.getMessage(name, subs), [
+    key.replaceAll('.', '_'),
+    substitutions,
+  ] as const);
+
+const escapeRe = (text: string) => text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
 /** 最近一次完成的下载：路径（相对下载目录）、尺寸与文件头 */
 const latestDownload = async () => {
   const [item] = await (await extensionWorker()).evaluate(() =>
@@ -138,11 +156,12 @@ const latestDownload = async () => {
 test('左键点按钮：用默认预设转换，按模板命名下载', async () => {
   const page = await openTweet();
   const button = page.locator('xgs-save-button button.save');
-  await expect(button).toHaveAttribute('aria-label', '保存为 GIF，右键可选预设');
+  await expect(button).toHaveAttribute('aria-label', await t('button.idle'));
   await button.click();
 
   await expect(button).toHaveAttribute('data-kind', 'done', { timeout: 45_000 });
-  await expect(button).toHaveAttribute('title', /^已保存 .+ · 480×480 · 15fps$/);
+  const saved = escapeRe(await t('button.saved', ['']));
+  await expect(button).toHaveAttribute('title', new RegExp(`^${saved}.+ · 480×480 · 15fps$`));
   const file = await latestDownload();
   expect(file.relative).toMatch(new RegExp(`^X-GIF/${TWEET_ID}_e2e_user( \\(\\d+\\))?\\.gif$`));
   expect(file).toMatchObject({ header: 'GIF89a', width: 480, height: 480 });
@@ -153,12 +172,14 @@ test('右键按钮选「表情包」：只这一次用该预设，体积在 1MB 
   const page = await openTweet();
   const button = page.locator('xgs-save-button button.save');
   await button.click({ button: 'right' });
-  const sticker = page.locator('xgs-save-button [role="menuitem"]', { hasText: '表情包' });
+  const stickerName = await t('preset.sticker');
+  const sticker = page.locator('xgs-save-button [role="menuitem"]', { hasText: stickerName });
   await expect(sticker).toBeVisible();
   await sticker.click();
 
   await expect(button).toHaveAttribute('data-kind', 'done', { timeout: 45_000 });
-  await expect(button).toHaveAttribute('title', /^已保存（表情包）.+ · 320×320 · /);
+  const savedWith = escapeRe(await t('button.savedWithPreset', [stickerName, '']));
+  await expect(button).toHaveAttribute('title', new RegExp(`^${savedWith}.+ · 320×320 · `));
   const file = await latestDownload();
   expect(file).toMatchObject({ header: 'GIF89a', width: 320, height: 320 });
   expect(file.size).toBeLessThanOrEqual(1024 * 1024);
@@ -178,7 +199,10 @@ test('按钮注入失效时：在 GIF 上右键后点「保存为 GIF」仍能�
   });
 
   const toast = page.locator('xgs-toast .toast');
-  await expect(toast).toHaveText(/^已保存 .+ · 480×480 · 15fps$/, { timeout: 45_000 });
+  const saved = escapeRe(await t('button.saved', ['']));
+  await expect(toast).toHaveText(new RegExp(`^${saved}.+ · 480×480 · 15fps$`), {
+    timeout: 45_000,
+  });
   const file = await latestDownload();
   expect(file.relative).toMatch(new RegExp(`^X-GIF/${TWEET_ID}_e2e_user( \\(\\d+\\))?\\.gif$`));
   expect(file.header).toBe('GIF89a');

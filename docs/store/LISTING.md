@@ -5,13 +5,13 @@
 改了权限、功能或数据处理方式时，同步改这里和根目录的 [PRIVACY.md](../../PRIVACY.md)，再到后台更新。
 
 > 插件名保持 `X GIF Saver`（2026-11-12 决定）。商标风险靠三点降低：介绍和隐私政策末尾都写明「与 X Corp. 无关」；图标不用 X 的 logo；名称和介绍里不出现「官方」之类的字眼。审核若因商标被拒，改名为 `GIF Saver for X`，要同时改这里、`wxt.config.ts`、README、PRIVACY.md。
-> 首次上架在 i18n 合入、界面支持英文之后进行。
+> 首次上架用 v0.2.1 及以后的版本：界面已支持英文（默认）和简体中文，跟随浏览器语言。
 
 ## 1. 商品详情（Store listing）
 
 ### 简短说明（manifest `description`，≤132 字符）
 
-商店列表页的副标题取自 manifest，不在后台填。i18n 时放进 `_locales/*/messages.json`：
+商店列表页的副标题取自 manifest，不在后台填。文案在 `src/locales/{en,zh_CN}.json` 的 `extDescription`，构建时生成 `_locales/*/messages.json`，改这里要同步改那里：
 
 ```text
 一键把 X（Twitter）上的 GIF 保存为真正的 .gif 文件，在浏览器本地转换，不上传任何数据
@@ -73,14 +73,14 @@ Not affiliated with or endorsed by X Corp.
 
 ### 其他字段
 
-| 字段     | 填写                                                  |
-| -------- | ----------------------------------------------------- |
-| 类别     | 工具（Tools）                                         |
-| 语言     | 简体中文（i18n 合入后加 English，各填对应语言的介绍） |
-| 官方网址 | 不填（需要先在 Search Console 验证域名）              |
-| 主页网址 | `https://github.com/jiangding01/x-gif-saver`          |
-| 支持网址 | `https://github.com/jiangding01/x-gif-saver/issues`   |
-| 成人内容 | 否                                                    |
+| 字段     | 填写                                                |
+| -------- | --------------------------------------------------- |
+| 类别     | 工具（Tools）                                       |
+| 语言     | English（默认）和简体中文，各填对应语言的介绍       |
+| 官方网址 | 不填（需要先在 Search Console 验证域名）            |
+| 主页网址 | `https://github.com/jiangding01/x-gif-saver`        |
+| 支持网址 | `https://github.com/jiangding01/x-gif-saver/issues` |
+| 成人内容 | 否                                                  |
 
 ## 2. 隐私权（Privacy practices）
 

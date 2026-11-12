@@ -57,12 +57,12 @@ const initialCapacity = (width: number, height: number, frames: number) =>
 
 export const gifencEncoder: Encoder = {
   id: 'gifenc',
-  label: '标准（gifenc + 有序抖动）',
+  label: 'Standard (gifenc + ordered dithering)',
   mime: 'image/gif',
   ext: 'gif',
   encode: async (input, { colors, dither, signal, onProgress }) => {
     const { width, height, frameCount } = input;
-    if (frameCount <= 0) throw new Error('没有可编码的帧');
+    if (frameCount <= 0) throw new Error('no frames to encode');
 
     // 第一遍：只保留被抽中的帧（getImageData 返回独占 buffer，quantize 需要），其余用完即弃
     const wanted = sampleIndices(frameCount);
@@ -74,7 +74,8 @@ export const gifencEncoder: Encoder = {
       i++;
       onProgress((i / frameCount) * FIRST_PASS_SHARE);
     }
-    if (i !== frameCount) throw new Error(`解码帧数不对：期望 ${frameCount}，实际 ${i}`);
+    if (i !== frameCount)
+      throw new Error(`decoded frame count mismatch: expected ${frameCount}, got ${i}`);
 
     const pixels = width * height * 4;
     const joined = new Uint8ClampedArray(pixels * sampled.length);
@@ -109,7 +110,7 @@ export const gifencEncoder: Encoder = {
       onProgress(Math.min(1, FIRST_PASS_SHARE + (written / frameCount) * (1 - FIRST_PASS_SHARE)));
     }
     if (written !== frameCount) {
-      throw new Error(`编码帧数不对：期望 ${frameCount}，实际 ${written}`);
+      throw new Error(`encoded frame count mismatch: expected ${frameCount}, got ${written}`);
     }
     gif.finish();
     // 显式发终值：上面的浮点运算未必恰好等于 1，调用方的节流要靠它收尾

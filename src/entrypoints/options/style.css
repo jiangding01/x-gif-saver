@@ -492,15 +492,6 @@ h2 {
   }
 }
 
-/* 弹窗里比行内编辑更紧凑，常见窗口高度下不用滚动 */
-.dialog .form-fields {
-  gap: 16px;
-}
-
-.dialog .field {
-  gap: 6px;
-}
-
 .dialog-foot {
   flex: none;
   margin-top: 0;
@@ -559,6 +550,15 @@ h2 {
   margin: 0;
   padding: 0;
   border: 0;
+}
+
+/* 弹窗里比行内编辑更紧凑，常见窗口高度下不用滚动 */
+.dialog .form-fields {
+  gap: 16px;
+}
+
+.dialog .field {
+  gap: 6px;
 }
 
 .field-label {

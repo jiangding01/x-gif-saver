@@ -2,6 +2,7 @@
 // 填完点「创建」才写入存储，取消不留任何痕迹；参数默认取当前默认预设。
 
 import { type SyntheticEvent, useEffect, useRef, useState } from 'react';
+import { i18n } from '#i18n';
 import { validatePreset } from '../../core/presets';
 import type { Preset } from '../../core/types';
 import { draftOf, type FormDraft, fieldsOf, PresetForm } from './PresetForm';
@@ -77,11 +78,11 @@ export const CreatePresetDialog = ({ base, name, all, onCreate, onClose }: Props
       {draft ? (
         <form onSubmit={submit} noValidate>
           <header className="dialog-head">
-            <h2 id="create-title">新建预设</h2>
+            <h2 id="create-title">{i18n.t('dialog.title')}</h2>
             <button
               type="button"
               className="button-icon button-close"
-              aria-label="关闭"
+              aria-label={i18n.t('dialog.close')}
               onClick={onClose}
             >
               <CloseIcon />
@@ -98,16 +99,16 @@ export const CreatePresetDialog = ({ base, name, all, onCreate, onClose }: Props
             />
             {failure ? (
               <p className="dialog-error" role="alert">
-                没能创建：{failure}
+                {i18n.t('dialog.createFailed', [failure])}
               </p>
             ) : null}
           </div>
           <footer className="form-actions dialog-foot">
             <button type="button" className="button-outline" onClick={onClose}>
-              取消
+              {i18n.t('dialog.cancel')}
             </button>
             <button type="submit" className="button-primary" disabled={invalid || busy}>
-              创建
+              {i18n.t('dialog.create')}
             </button>
           </footer>
         </form>

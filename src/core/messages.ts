@@ -7,6 +7,7 @@
 // 一次点击 = 一个请求（requestId），可能包含多个 GIF（每个 GIF 一个 job）。content 只认 requestId + mediaId，
 // 不需要知道 jobId；取消也按 requestId 整体取消。
 
+import type { JobError } from './errors';
 import type { FinalParams, GifSource, Job, JobStage } from './types';
 
 export type ToBackground =
@@ -22,7 +23,7 @@ export type ToBackground =
   | { target: 'background'; type: 'options:open' }
   | { target: 'background'; type: 'job:progress'; jobId: string; stage: JobStage; ratio: number }
   | { target: 'background'; type: 'job:done'; jobId: string; blobUrl: string; params: FinalParams }
-  | { target: 'background'; type: 'job:error'; jobId: string; message: string };
+  | { target: 'background'; type: 'job:error'; jobId: string; error: JobError };
 
 export type ToOffscreen =
   | { target: 'offscreen'; type: 'job:run'; job: Job }
@@ -42,7 +43,7 @@ export type ToContent =
     }
   | { target: 'content'; type: 'job:done'; requestId: string; mediaId: string; params: FinalParams }
   /** mediaId 缺省表示整个请求失败（例如 background 读设置出错），所有未完成的 GIF 都算失败 */
-  | { target: 'content'; type: 'job:error'; requestId: string; mediaId?: string; message: string };
+  | { target: 'content'; type: 'job:error'; requestId: string; mediaId?: string; error: JobError };
 
 /** background → content script：浏览器右键菜单点了「保存为 GIF」（M2-5）。srcUrl 是右键在视频上时的地址 */
 export type ContentCommand = { target: 'content'; type: 'context:save'; srcUrl?: string };

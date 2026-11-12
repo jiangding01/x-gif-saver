@@ -5,6 +5,10 @@ type E2EDownloadItem = { filename: string };
 
 declare const chrome: {
   downloads: { search(query: object): Promise<E2EDownloadItem[]> };
+  i18n: {
+    getMessage(name: string, substitutions?: string[]): string;
+    getUILanguage(): string;
+  };
   tabs: {
     query(query: object): Promise<{ id?: number }[]>;
     sendMessage(tabId: number, message: unknown): Promise<unknown>;

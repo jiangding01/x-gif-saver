@@ -91,16 +91,16 @@ describe('validateFilename', () => {
 
   it('模板不能为空，文件夹可以为空', () => {
     expect(validateFilename({ filenameTemplate: ' ', subfolder: '' })).toEqual({
-      filenameTemplate: '文件名不能为空',
+      filenameTemplate: "File name can't be empty",
     });
   });
 
   it('未知变量报错，同名只列一次', () => {
     const errors = validateFilename({ filenameTemplate: '{foo}{foo}{bar}', subfolder: '{x}' });
     expect(errors.filenameTemplate).toBe(
-      '不认识 {foo} {bar}，可用的变量：{tweetId} {author} {date}',
+      'Unknown {foo} {bar}. Available variables: {tweetId} {author} {date}',
     );
-    expect(errors.subfolder).toContain('不认识 {x}');
+    expect(errors.subfolder).toContain('Unknown {x}');
   });
 
   it('不把原型上的属性名当成变量', () => {
