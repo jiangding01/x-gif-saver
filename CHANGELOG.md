@@ -15,4 +15,8 @@
 - 技术方案、路线图、README 文档
 - MIT 许可证
 - 项目级 `.npmrc` 固定使用 npm 官方源，锁文件按官方源生成
+
+### 文档
+
+- README 当前状态与功能表按实际进度更新；TECH-DESIGN 目录补充 `ui/button.ts`、`pipeline/demux.ts`
 - GitHub Actions 持续集成：PR 与 main 上自动运行 `pnpm check` 和 `pnpm build`

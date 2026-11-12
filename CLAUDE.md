@@ -23,6 +23,7 @@ Chrome MV3 插件：把 X 上的 GIF（实为 MP4）在本地转成 .gif 下载�
 ## 流程
 
 - 每个 ROADMAP 任务：从 main 切 `feat/` 分支 → 先出技术方案并评审 → 开发 → `pnpm check` + `pnpm build` + 按「完成标准」手动验收 → 代码审查修到无阻塞问题 → 勾选 ROADMAP、更新 CHANGELOG、方案变动追加到 TECH-DESIGN「决策记录」→ 提交推送、开 PR → 问用户是否合并（用户手动合并，合并后切回 main 拉取并清理本地分支）
+- 每次改代码后核对文档与代码一致：`package.json` 版本（manifest 由它生成）、README（当前状态、功能表、目录、命令）、CHANGELOG、TECH-DESIGN（目录、关键事实、风险、决策记录）、ROADMAP；里程碑内版本保持不变、改动记在 CHANGELOG「Unreleased」，里程碑结束时按 ROADMAP 升版本
 - commit message 用简体中文多行：做了什么 / 如何验证 / 如何回滚
 - 仓库公开：推送前确认没有本机路径、内网地址、密钥
 
