@@ -9,6 +9,7 @@ declare const chrome: {
     getMessage(name: string, substitutions?: string[]): string;
     getUILanguage(): string;
   };
+  runtime: { reload(): void };
   tabs: {
     query(query: object): Promise<{ id?: number }[]>;
     sendMessage(tabId: number, message: unknown): Promise<unknown>;

@@ -196,6 +196,9 @@ export default defineContentScript({
     };
 
     const onClick = (container: Element) => {
+      // 插件已重新加载或更新、页面没刷新：本脚本已与插件断开（chrome.i18n 等都没了）。
+      // 读 ctx.isInvalid 会让 WXT 触发下面 onInvalidated 的清理，旧按钮随之移除
+      if (ctx.isInvalid) return;
       // 点击时重新识别一次，拿到最新的 GIF 列表（懒加载可能刚补上 src）
       const target = findTargets().find((t) => t.container === container);
       if (!target) return;
@@ -232,6 +235,8 @@ export default defineContentScript({
     const onContextMenu =
       (container: Element): ContextMenuHandler =>
       (button, menu, viaKeyboard) => {
+        // 已失效时不拦截，浏览器原生菜单照常出现
+        if (ctx.isInvalid) return false;
         const target = findTargets().find((t) => t.container === container);
         if (!target) return false;
         const tweetId = tweetIdOf(target);
@@ -250,6 +255,7 @@ export default defineContentScript({
               })),
               {
                 onPick: (id) => {
+                  if (ctx.isInvalid) return;
                   // 选完再识别一次：菜单打开期间状态或 GIF 列表可能已变化
                   const now = findTargets().find((t) => t.container === container);
                   if (!now) return;
@@ -319,7 +325,7 @@ export default defineContentScript({
         // 结束后不再接收该请求的消息；失败保持显示直到用户点击重试，完成 3 秒后回到空闲
         tweetByRequest.delete(entry.task.requestId);
         if (viewOf(entry.task).kind === 'done') {
-          entry.doneTimer = window.setTimeout(() => {
+          entry.doneTimer = ctx.setTimeout(() => {
             if (tasks.get(tweetId) !== entry) return;
             clearTask(tweetId);
             refresh(tweetId);
@@ -395,8 +401,11 @@ export default defineContentScript({
     let scheduled = false;
     const scheduleScan = () => {
       if (scheduled) return;
+      // X 的 DOM 几乎一直在变，这里是失效后最先被触发的地方：检查一次让 WXT 执行清理、停止观察，
+      // 否则断开的旧脚本会不停重扫、挂按钮并在调用 chrome.i18n 时报错
+      if (ctx.isInvalid) return;
       scheduled = true;
-      requestAnimationFrame(() => {
+      ctx.requestAnimationFrame(() => {
         scheduled = false;
         scan();
       });
@@ -424,10 +433,11 @@ export default defineContentScript({
     // 按钮 UI 与 ctx.setInterval 随 ctx 失效由 WXT 自动清理；这里停掉观察和监听
     ctx.onInvalidated(() => {
       observer.disconnect();
-      browser.runtime.onMessage.removeListener(onJobMessage);
       window.removeEventListener('contextmenu', onAnyContextMenu, true);
       toast.remove();
       for (const tweetId of [...tasks.keys()]) clearTask(tweetId);
+      // 与插件断开后 chrome.runtime 可能已不存在，放最后，出错也不影响上面的清理
+      browser.runtime?.onMessage.removeListener(onJobMessage);
     });
   },
 });

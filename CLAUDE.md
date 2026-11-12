@@ -36,6 +36,7 @@ Chrome MV3 插件：把 X 上的 GIF（实为 MP4）在本地转成 .gif 下载�
 
 - `.npmrc` 固定 npm 官方源，不要改成其他源；锁文件按官方源生成
 - 文案格式：不能出现 `$1$2` 这类写法（Chrome 读成具名占位符 `$1$`，整个扩展加载失败，只在浏览器日志里报 `Variable $1$ used but not defined`）；`{名字}` 会被 `@wxt-dev/i18n` 当具名参数，字面量 `{author}` 要用 `$1` 传入
+- content script 里由页面事件、观察器、定时器触发的代码，要用 `ctx.requestAnimationFrame` / `ctx.setTimeout` 等 WXT 包装或先查 `ctx.isInvalid`：插件重新加载或更新后，没刷新页面里的旧脚本会继续运行，但 `chrome.i18n`、`chrome.runtime` 已不可用；查 `ctx.isInvalid` 会触发 `onInvalidated` 清理
 - 本机 macOS 上 e2e 的 `--lang` 不生效（跟随系统语言），中英两遍要到 CI（Linux）才真正分开；断言文案要用 `chrome.i18n.getMessage` 取，不要写死
 - Biome 也会格式化 Markdown（含表格），改文档后跑 `pnpm lint:fix`
 - `mp4box`、`gifenc` 已声明但 M1-2 ~ M1-4 才用，不是冗余依赖
