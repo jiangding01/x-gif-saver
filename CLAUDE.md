@@ -43,6 +43,7 @@ Chrome MV3 插件：把 X 上的 GIF（实为 MP4）在本地转成 .gif 下载�
 - WXT 的 shadow 宿主带 `all: initial !important`：宿主自身的布局样式必须写在 shadow 样式表的 `:host { … !important }` 里，写在宿主内联样式上无效
 - 下载文件名由 background 的 `downloads.onDeterminingFilename` 认领：其他扩展监听该事件时 Chrome 会忽略 `download({ filename })`；监听器对别人的下载必须调用空 `suggest()`，否则会卡住所有下载
 - WXT 的静态文件目录是项目根的 `public/`（不是 `src/public`），插件图标在 `public/icons`
+- 旧 `.wxt/` 不会自愈：pull 后代码用到新的路径别名（如 v0.2.1 引入的 `#i18n`），而本地 `.wxt/tsconfig.json` 是旧版本生成的，`wxt prepare`（含 postinstall）和 `wxt build` 都会先按旧映射读入口配置，报 `Cannot find module '#i18n'` 并且每次都失败；`rm -rf .wxt` 后重新构建即可，与 import 写法无关，不要为此改代码
 - x.com 未启用 Trusted Types，content script 可用 `innerHTML` 写静态 SVG
 - X 的 DOM（2026-11-11 实测，详见 TECH-DESIGN 风险 R2 与决策记录）：引用卡片是 article 内 `div[role="link"]`；操作栏是含 `[data-testid="reply"]` 的 `[role="group"]`；大图弹窗 `[role="dialog"][aria-modal="true"]` 的 GIF 不在任何 article 里，且弹窗最外层还有一个包住一切的 group，找操作栏时要排除含 article 的 group；外层推文「复用」别人的 GIF 时它在引用卡片外，算外层自己的
 - 浏览器右键菜单兜底（M2-5）：content script 在 window 捕获阶段记右键位置，并对 GIF 播放器（`[data-testid="videoComponent"]` 里的 GIF）上的右键 `stopImmediatePropagation`，否则 X 可能拦截、浏览器菜单不出现；不要扩大到其他元素
