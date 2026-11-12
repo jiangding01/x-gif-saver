@@ -31,7 +31,7 @@ describe('describePreset', () => {
     expect(describePreset(byId(base(), 'balanced'))).toBe('最长边 480px · 原帧率 · 256 色 · 抖动');
     expect(describePreset(byId(base(), 'original'))).toBe('原始尺寸 · 原帧率 · 256 色 · 抖动');
     expect(describePreset({ ...byId(base(), 'sticker'), dither: 'none' })).toBe(
-      '最长边 320px · ≤ 12fps · 128 色 · 不抖动 · ≤ 1MB',
+      '最长边 320px · ≤\u00a012fps · 128 色 · 不抖动 · ≤\u00a01MB',
     );
   });
 });
@@ -222,7 +222,7 @@ describe('目标体积（M2-4）', () => {
 
   it('摘要里带上体积上限', () => {
     expect(describePreset(byId(base(), 'sticker'))).toBe(
-      '最长边 320px · ≤ 12fps · 128 色 · 抖动 · ≤ 1MB',
+      '最长边 320px · ≤\u00a012fps · 128 色 · 抖动 · ≤\u00a01MB',
     );
     expect(describePreset(byId(base(), 'balanced'))).not.toContain('MB');
   });

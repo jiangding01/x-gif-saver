@@ -28,10 +28,11 @@ export const fromMB = (mb: number): number => Math.round(Math.round(mb * 10) * (
 export const describePreset = (p: Preset): string =>
   [
     p.maxSide === null ? '原始尺寸' : `最长边 ${p.maxSide}px`,
-    p.fpsCap === null ? '原帧率' : `≤ ${p.fpsCap}fps`,
+    // ≤ 后用不换行空格：窄处换行时不把「≤」和数字拆到两行
+    p.fpsCap === null ? '原帧率' : `≤\u00a0${p.fpsCap}fps`,
     `${p.colors} 色`,
     p.dither === 'bayer' ? '抖动' : '不抖动',
-    ...(p.targetBytes === null ? [] : [`≤ ${toMB(p.targetBytes)}MB`]),
+    ...(p.targetBytes === null ? [] : [`≤\u00a0${toMB(p.targetBytes)}MB`]),
   ].join(' · ');
 
 const isIntIn = (v: number, range: { min: number; max: number }) =>
