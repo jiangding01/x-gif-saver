@@ -25,15 +25,17 @@ X 会把用户上传的 GIF 转成 MP4 存储和播放，服务器上没有原�
 
 ## 2. 关键事实（已核实）
 
-| 事实                                                                                                                                                                      | 核实方式              | 影响                                                           |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- | -------------------------------------------------------------- |
-| GIF 视频地址为 `video.twimg.com/tweet_video/<mediaId>.mp4`，封面为 `pbs.twimg.com/tweet_video_thumb/<mediaId>.jpg`；普通视频为 `blob:` / `amplify_video` / `ext_tw_video` | 用户提供的 DOM        | 按媒体地址识别 GIF，不依赖样式类名                             |
-| 样本 MP4：H.264，480×480，15fps，65 帧，109KB；容器（mvhd/mdhd/elst）时长 434cs，ffprobe 显示 4.33s；时间单位 1/100 秒，带 edit list                                      | ffprobe + mp4box      | 估算性能与体积；验收基准以容器时长为准                         |
-| offscreen 创建的 Worker 里 `fetch(video.twimg.com)` 不受 CORS 限制（扩展 origin + host_permissions）                                                                      | 2026-11-12 端到端实测 | 取源放在 Worker 里，不需要经 offscreen 主线程中转              |
-| `video.twimg.com` 返回 `access-control-allow-origin: https://x.com`                                                                                                       | curl                  | 转码放在扩展 origin，靠 host_permissions 绕过 CORS，与该头无关 |
-| x.com CSP：`worker-src 'self' blob: https://*.twimg.com …`                                                                                                                | curl                  | **content script 里起不了扩展 Worker** → 转码放 offscreen 文档 |
-| gifenc 不支持抖动，README 自述不适合视频                                                                                                                                  | README                | 自实现有序抖动；编码器可插拔，后续可接 gifski                  |
-| gifski-wasm 2.2.0 为 AGPL-3.0                                                                                                                                             | npm                   | 自用无碍，上架商店须开源 → 暂缓                                |
+| 事实                                                                                                                                                                      | 核实方式                    | 影响                                                                        |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- | --------------------------------------------------------------------------- |
+| GIF 视频地址为 `video.twimg.com/tweet_video/<mediaId>.mp4`，封面为 `pbs.twimg.com/tweet_video_thumb/<mediaId>.jpg`；普通视频为 `blob:` / `amplify_video` / `ext_tw_video` | 用户提供的 DOM              | 按媒体地址识别 GIF，不依赖样式类名                                          |
+| 样本 MP4：H.264，480×480，15fps，65 帧，109KB；容器（mvhd/mdhd/elst）时长 434cs，ffprobe 显示 4.33s；时间单位 1/100 秒，带 edit list                                      | ffprobe + mp4box            | 估算性能与体积；验收基准以容器时长为准                                      |
+| offscreen 创建的 Worker 里 `fetch(video.twimg.com)` 不受 CORS 限制（扩展 origin + host_permissions）                                                                      | 2026-11-12 端到端实测       | 取源放在 Worker 里，不需要经 offscreen 主线程中转                           |
+| X 的 GIF 视频可能是可变帧率（保留原 GIF 每帧时长），且带 B 帧；MP4 的样本时长按解码顺序记录，不对应显示顺序                                                               | 2026-11-12 ffprobe + mp4box | 总时长取容器 edit list，不用「最后显示帧 + 样本时长」；ffprobe 的时长不可靠 |
+| 硬件解码器输出帧池很小，产出的 VideoFrame 不及时 close 会停止输出；flush() 要等全部帧输出才完成                                                                           | WebCodecs 规范 + 单测       | 解码边 flush 边取帧，不保留的帧立即 close                                   |
+| `video.twimg.com` 返回 `access-control-allow-origin: https://x.com`                                                                                                       | curl                        | 转码放在扩展 origin，靠 host_permissions 绕过 CORS，与该头无关              |
+| x.com CSP：`worker-src 'self' blob: https://*.twimg.com …`                                                                                                                | curl                        | **content script 里起不了扩展 Worker** → 转码放 offscreen 文档              |
+| gifenc 不支持抖动，README 自述不适合视频                                                                                                                                  | README                      | 自实现有序抖动；编码器可插拔，后续可接 gifski                               |
+| gifski-wasm 2.2.0 为 AGPL-3.0                                                                                                                                             | npm                         | 自用无碍，上架商店须开源 → 暂缓                                             |
 
 ## 3. 交互设计
 
@@ -99,6 +101,8 @@ src/
   core/filename.ts         文件名模板渲染
   pipeline/run.ts          转换流水线主流程（Worker 内运行）
   pipeline/demux.ts        取源 + 拆封装：fetch MP4，mp4box 取轨道信息、avcC 与样本
+  pipeline/decode.ts       解码：VideoDecoder 生命周期与背压，按显示顺序产出 VideoFrame
+  pipeline/transform.ts    变换：输出尺寸（fitSize）、抽帧计划与帧延迟（planFrames）
   pipeline/worker.ts       Worker 入口：接任务、转发进度、可取消
   pipeline/timing.ts       帧延迟计算（厘秒，累计取整）
   pipeline/dither.ts       有序抖动（M1-4 新增）
@@ -128,9 +132,10 @@ src/
 2. **拆封装**：mp4box.js 解析出视频轨（codec、宽高、timescale、样本数、时长）和 `avcC` 作为 `VideoDecoder` 的 `description`。参考 W3C 官方示例 [webcodecs/samples/video-decode-display](https://github.com/w3c/webcodecs/tree/main/samples/video-decode-display) 的 mp4 demuxer 写法；mp4box 2.x 是 ESM 重写版，API 以其类型定义为准
 3. **解码**：`VideoDecoder.isConfigSupported` 不通过直接报「当前浏览器不支持 H.264 解码」，不做降级（能播 X 视频的 Chrome 都支持）
 4. **变换**：
-   - 尺寸：最长边超过 `maxSide` 时等比缩小，宽高取偶数；`OffscreenCanvas.drawImage(frame, 0, 0, w, h)` 后 `getImageData`，**用完立即 `frame.close()`**
-   - 帧率：`fpsCap` 低于原帧率时按时间戳抽帧（保留时间戳 ≥ 下一个目标时刻的帧）
-   - 延迟：用保留帧的时间戳调用 `timing.ts` 的 `delaysFromTimestamps`
+   - 尺寸：最长边超过 `maxSide` 时等比缩小（不放大），四舍五入、下限 1（GIF 不要求偶数宽高）；`OffscreenCanvas.drawImage(frame, 0, 0, w, h)` 后 `getImageData`，**用完立即 `frame.close()`**
+   - 帧率：`fpsCap` 低于原帧率时按时间戳抽帧：第 k 个目标时刻为 `round(k × 1e6 / fpsCap)`（整数序号，不累加浮点），保留「时间戳 + 0.5cs ≥ 目标时刻」的帧；0.5cs 容差吸收 X 时间戳按 1/100 秒取整的误差；每保留一帧至少消耗一个目标时刻，平均帧率不超过上限
+   - 延迟：用保留帧的时间戳和容器总时长调用 `timing.ts` 的 `delaysFromTimestamps`；抽帧计划在解码前算好，解码时按 `VideoFrame.timestamp` 查表
+   - 解码：`decodeFrames` 只在「待取帧 < 2 且解码队列 < 4」时喂数据；不保留的帧在输出回调里立即 close；`flush()` 不先 await，边取帧边等它完成（帧池占满时先 await 会死锁）
 5. **编码**：`ENCODERS[preset.encoder].encode(input, opts)`
 6. **目标体积**（M2-4）：超出 `targetBytes` 时按下表逐级降级重编码，最多 4 次；仍超出则保存最后一次结果并提示「未能压到 X 以内」
 
@@ -249,16 +254,19 @@ Settings = { defaultPresetId, presets: Preset[], filenameTemplate, subfolder }
 
 ## 11. 决策记录
 
-| 日期       | 决策                                                                                  | 放弃的方案及原因                                                               |
-| ---------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| 2026-11-11 | 转码放 offscreen 文档 + Worker                                                        | content script 内转码：x.com CSP 拦扩展 Worker，且会卡页面                     |
-| 2026-11-11 | mp4box.js + WebCodecs 解码                                                            | `<video>` seek 抽帧：落在关键帧附近，重帧丢帧且慢                              |
-| 2026-11-11 | gifenc + 自实现有序抖动                                                               | ffmpeg.wasm：核心体积 30MB+；gif.js：慢且已停更                                |
-| 2026-11-11 | gifski 暂缓到 M3                                                                      | AGPL-3.0，上架须开源；先看 M1 画质                                             |
-| 2026-11-11 | 入口只放操作栏按钮 + 右键菜单                                                         | GIF 浮层按钮：用户确认会影响正常使用                                           |
-| 2026-11-11 | 配置项 C1–C8 纳入，C9 暂缓，C10 不做                                                  | —                                                                              |
-| 2026-11-11 | 大图弹窗单独识别：取弹窗内 article 外的 GIF，作者/ID 取自地址栏，按钮挂弹窗底部操作栏 | 只认 article：实测弹窗的 GIF 不在任何 article 里，弹窗内不会出按钮             |
-| 2026-11-11 | 私信移出操作栏按钮的验收范围                                                          | 适配 XChat：私信已迁到 `/i/chat`，没有推文操作栏；由 M2-5 右键菜单兜底         |
-| 2026-11-11 | 引入 happy-dom 给 DOM 识别逻辑写单测（仅开发依赖）                                    | 只靠手动验收：X 改版时回归成本高                                               |
-| 2026-11-12 | 拆封装后把显示时间戳统一减去最小 cts，首帧从 0 开始                                   | 直接用 mp4box 的 cts：它不应用 edit list，带 B 帧时整体偏移约 2 帧，时长会多算 |
-| 2026-11-12 | 单测用 ffmpeg 合成的样本（参数对齐真实样本），不提交 X 上的真实 GIF                   | 提交真实样本：版权属于上传者，仓库公开                                         |
+| 日期       | 决策                                                                                  | 放弃的方案及原因                                                                |
+| ---------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| 2026-11-11 | 转码放 offscreen 文档 + Worker                                                        | content script 内转码：x.com CSP 拦扩展 Worker，且会卡页面                      |
+| 2026-11-11 | mp4box.js + WebCodecs 解码                                                            | `<video>` seek 抽帧：落在关键帧附近，重帧丢帧且慢                               |
+| 2026-11-11 | gifenc + 自实现有序抖动                                                               | ffmpeg.wasm：核心体积 30MB+；gif.js：慢且已停更                                 |
+| 2026-11-11 | gifski 暂缓到 M3                                                                      | AGPL-3.0，上架须开源；先看 M1 画质                                              |
+| 2026-11-11 | 入口只放操作栏按钮 + 右键菜单                                                         | GIF 浮层按钮：用户确认会影响正常使用                                            |
+| 2026-11-11 | 配置项 C1–C8 纳入，C9 暂缓，C10 不做                                                  | —                                                                               |
+| 2026-11-11 | 大图弹窗单独识别：取弹窗内 article 外的 GIF，作者/ID 取自地址栏，按钮挂弹窗底部操作栏 | 只认 article：实测弹窗的 GIF 不在任何 article 里，弹窗内不会出按钮              |
+| 2026-11-11 | 私信移出操作栏按钮的验收范围                                                          | 适配 XChat：私信已迁到 `/i/chat`，没有推文操作栏；由 M2-5 右键菜单兜底          |
+| 2026-11-11 | 引入 happy-dom 给 DOM 识别逻辑写单测（仅开发依赖）                                    | 只靠手动验收：X 改版时回归成本高                                                |
+| 2026-11-12 | 拆封装后把显示时间戳统一减去最小 cts，首帧从 0 开始                                   | 直接用 mp4box 的 cts：它不应用 edit list，带 B 帧时整体偏移约 2 帧，时长会多算  |
+| 2026-11-12 | 单测用 ffmpeg 合成的样本（参数对齐真实样本），不提交 X 上的真实 GIF                   | 提交真实样本：版权属于上传者，仓库公开                                          |
+| 2026-11-12 | 输出尺寸不再取偶数，只缩不放、四舍五入                                                | 宽高取偶数：GIF 没有该要求，未缩放时反而改变原尺寸                              |
+| 2026-11-12 | 抽帧用整数序号算目标时刻，并留 0.5cs 容差                                             | 浮点累加目标：30→15fps 会误丢帧；不留容差：帧率上限等于原帧率时 65 帧只剩 44 帧 |
+| 2026-11-12 | 总时长取容器 edit list（其次 mdhd），容器时长不晚于最后一帧时才退回估算               | 最后显示帧 + 样本时长：可变帧率带 B 帧时多算（实测 6.41s vs 6.21s）             |
