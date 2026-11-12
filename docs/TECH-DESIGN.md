@@ -245,6 +245,8 @@ Settings = { defaultPresetId, presets: Preset[], filenameTemplate, subfolder }
 
 **回滚**：在 `chrome://extensions` 停用或移除即可；不涉及服务端和数据迁移。设置带版本号，降级时忽略不认识的字段。
 
+**发布**（`.github/workflows/release.yml`）：推送 `vX.Y.Z` 标签触发，校验标签与 `package.json` 版本一致后跑 `pnpm check`、`pnpm zip`，用 `scripts/changelog-section.sh` 提取 CHANGELOG 对应段落，创建草稿 Release 并上传 zip；已存在同名 Release 时失败退出，不覆盖。
+
 **持续集成**（`.github/workflows/ci.yml`）：每个 PR 和推到 main 的提交，在 GitHub Actions 上用与本地相同的 pnpm 12.16.1 + Node 24 跑 `pnpm install --frozen-lockfile`、`pnpm check`、`pnpm build`。手动验收项无法自动化，仍按上面的清单人工过。
 
 ## 10. 技术选型
@@ -286,3 +288,4 @@ Settings = { defaultPresetId, presets: Preset[], filenameTemplate, subfolder }
 | 2026-11-12 | background 任务表存 `storage.session`（R3 原定预案）+ content 超时兜底                | 只靠超时：SW 重启后进度无处转发、转好的 GIF 无人下载                                                                |
 | 2026-11-12 | M3（gifski）暂缓                                                                      | 现在接入：画质已与 ffmpeg 有序抖动持平且体积更小；误差扩散类方案画质高但体积约 2.7 倍、帧间噪点不稳定，不适合表情包 |
 | 2026-11-12 | 默认文件名 `{tweetId}_{author}`                                                       | `{author}_{tweetId}`：用户希望推文 ID 开头；ID 按时间递增，按名称排序即按时间排序                                   |
+| 2026-11-12 | 推送 `v*` 标签后由工作流构建并创建**草稿** Release，包名 `x-gif-saver-vX.Y.Z.zip`     | 手动打包上传：易出错、产物不可追溯；直接公开发布：说明来自 CHANGELOG 偏开发视角，且公开前没有人工检查点             |

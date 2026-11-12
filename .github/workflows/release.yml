@@ -1,0 +1,67 @@
+# 发布：推送 v* 标签后自动构建扩展 zip，创建「草稿」Release 并上传附件。
+# 草稿不公开：说明按规范润色、确认无误后再手动点「发布」。
+# Action 按 commit SHA 固定（与 ci.yml 相同），注释里写对应版本；升级时同时改 SHA 和注释。
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # 只有这个 job 需要写权限：创建 Release 并上传附件
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        with:
+          version: 12.16.1
+          cache: true
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24
+
+      - name: 校验标签与 package.json 版本一致
+        run: |
+          version=$(node -p "require('./package.json').version")
+          if [ "$GITHUB_REF_NAME" != "v$version" ]; then
+            echo "::error::标签 $GITHUB_REF_NAME 与 package.json 版本 $version 不一致"
+            exit 1
+          fi
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm check
+
+      - run: pnpm zip
+
+      - name: 从 CHANGELOG 提取本版本说明
+        run: bash scripts/changelog-section.sh "${GITHUB_REF_NAME#v}" > release-notes.md
+
+      - name: 创建草稿 Release 并上传附件
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          asset=".output/x-gif-saver-${GITHUB_REF_NAME}.zip"
+          test -f "$asset" || { echo "::error::没有找到打包产物 $asset"; exit 1; }
+          # 已有同名 Release（例如手动建过）时不覆盖，避免冲掉已润色的说明
+          if gh release view "$GITHUB_REF_NAME" > /dev/null 2>&1; then
+            echo "::error::Release $GITHUB_REF_NAME 已存在，未做改动"
+            exit 1
+          fi
+          gh release create "$GITHUB_REF_NAME" "$asset" \
+            --draft --verify-tag \
+            --title "$GITHUB_REF_NAME" \
+            --notes-file release-notes.md

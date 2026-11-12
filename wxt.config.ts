@@ -4,6 +4,8 @@ import { defineConfig } from 'wxt';
 export default defineConfig({
   srcDir: 'src',
   modules: ['@wxt-dev/module-react'],
+  // 发布包名：插件名 + v版本号，与 Git 标签写法一致，如 x-gif-saver-v0.1.0.zip
+  zip: { artifactTemplate: '{{name}}-v{{version}}.zip' },
   manifest: {
     name: 'X GIF Saver',
     description: '一键把 X 上的 GIF 保存为 .gif 文件，可作为表情包使用',
