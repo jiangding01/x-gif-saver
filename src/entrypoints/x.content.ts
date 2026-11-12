@@ -8,7 +8,7 @@
 
 import { browser, type ContentScriptContext, defineContentScript } from '#imports';
 import { type GifTarget, modalTarget, TWEET_SELECTOR, tweetTarget } from '../adapters/x';
-import type { ToBackground } from '../core/messages';
+import type { ToBackground, ToContent } from '../core/messages';
 import { mountSaveButton, type SaveButton } from '../ui/button';
 
 type Mounted = { key: string; actionBar: Element; ui: Promise<SaveButton | null> };
@@ -97,7 +97,15 @@ export default defineContentScript({
       attributeFilter: ['src', 'poster'],
     });
     scan();
-    // 按钮 UI 随 ctx 失效由 WXT 自动移除；这里只需停掉观察
-    ctx.onInvalidated(() => observer.disconnect());
+
+    // background 回传的任务进度/结果。M1-5 改为驱动按钮状态，目前只打调试日志
+    const onJobMessage = (msg: ToContent) => console.debug(`[x-gif-saver] ${JSON.stringify(msg)}`);
+    browser.runtime.onMessage.addListener(onJobMessage);
+
+    // 按钮 UI 随 ctx 失效由 WXT 自动移除；这里只需停掉观察和监听
+    ctx.onInvalidated(() => {
+      observer.disconnect();
+      browser.runtime.onMessage.removeListener(onJobMessage);
+    });
   },
 });
