@@ -18,6 +18,7 @@ Chrome MV3 插件：把 X 上的 GIF（实为 MP4）在本地转成 .gif 下载�
 - 识别 X 的 DOM 只依赖 `data-testid`、`role` 和媒体地址，不依赖 `r-xxxx`/`css-xxxx` 样式类名
 - 消息必须带 `target` 字段并用 `core/messages.ts` 里的类型守卫过滤；content 与 background 之间按 `requestId`（一次点击）+ `mediaId` 路由，不暴露 jobId
 - 改 `Settings` 结构：`core/settings.ts` 的 `version` +1 并写 `migrations`
+- 写设置一律用设置页的 `mutateSettings`（读最新值 → 套用 `core/presets.ts` 等纯函数 → 写回），不要拿组件 state 整份覆盖；默认数据放 `core/defaults.ts`（不依赖 WXT，单测可直接引用）
 - 新增编码器/站点按 TECH-DESIGN §4.2 的扩展点做，不改流水线主流程
 - 新增权限、配置项、用户可见功能前先问用户；GIF 浮层按钮已明确不做
 

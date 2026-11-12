@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { DEFAULT_SETTINGS } from './defaults';
 import { renderFilename } from './filename';
 import type { GifSource } from './types';
 
@@ -11,8 +12,9 @@ const src: GifSource = {
 const now = new Date(2026, 10, 11);
 
 describe('renderFilename', () => {
-  it('默认模板（与 core/settings.ts 的 DEFAULT_SETTINGS 保持一致）+ 子目录', () => {
-    expect(renderFilename('{tweetId}_{author}', 'X-GIF', src, 1, 1, now)).toBe(
+  it('默认模板 + 子目录', () => {
+    const { filenameTemplate, subfolder } = DEFAULT_SETTINGS;
+    expect(renderFilename(filenameTemplate, subfolder, src, 1, 1, now)).toBe(
       'X-GIF/2120459074362114107_jiangding01.gif',
     );
   });
