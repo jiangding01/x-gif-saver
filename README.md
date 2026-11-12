@@ -45,7 +45,7 @@ pnpm build
 | `pnpm lint` / `pnpm lint:fix` | Biome 检查 / 自动修复                          |
 | `pnpm check`                  | 类型检查 + lint + 测试，提交前必须通过         |
 
-CI（GitHub Actions）在每个 PR 和 main 上运行 `pnpm install --frozen-lockfile`、`pnpm check`、`pnpm build`。
+CI（GitHub Actions）在每个 PR 和 main 上运行 `pnpm install --frozen-lockfile`、`pnpm check`、`pnpm build`。推送 `vX.Y.Z` 标签后，Release 工作流会自动打包 `x-gif-saver-vX.Y.Z.zip` 并创建草稿 Release。
 
 ## 目录
 
