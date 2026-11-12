@@ -175,6 +175,8 @@ test('右键按钮选「表情包」：只这一次用该预设，体积在 1MB 
   const stickerName = await t('preset.sticker');
   const sticker = page.locator('xgs-save-button [role="menuitem"]', { hasText: stickerName });
   await expect(sticker).toBeVisible();
+  // 菜单字体用固定的 X 字体栈，不随浏览器默认字体变（样本页和 X 一样没在 body 上设字体）
+  await expect(sticker.locator('.name')).toHaveCSS('font-family', /^TwitterChirp/);
   await sticker.click();
 
   await expect(button).toHaveAttribute('data-kind', 'done', { timeout: 45_000 });

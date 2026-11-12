@@ -4,6 +4,7 @@
 // 视觉模仿 X 的下拉菜单，打开时按页面背景色适配浅色 / 暗蓝 / 纯黑主题。
 
 import { i18n } from '#i18n';
+import { X_FONT } from './font';
 
 export type MenuItem = { id: string; name: string; detail: string; isDefault: boolean };
 export type MenuHandlers = { onPick: (id: string) => void; onManage: () => void };
@@ -203,7 +204,7 @@ export const createPresetMenu = (container: HTMLElement): PresetMenu => {
     menu.style.setProperty('--m-hover', theme.hover);
     menu.style.setProperty('--m-line', theme.line);
     menu.style.setProperty('--m-shadow', theme.shadow);
-    menu.style.setProperty('--m-font', getComputedStyle(document.body).fontFamily);
+    menu.style.setProperty('--m-font', X_FONT);
 
     const pick = (run: () => void) => () => {
       close();
