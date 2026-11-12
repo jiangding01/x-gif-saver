@@ -1,3 +1,5 @@
+![X GIF Saver: save GIFs as real .gif files, runs locally, no uploads](docs/store/promo/small-tile-en.png)
+
 # X GIF Saver
 
 English | [简体中文](README.zh-CN.md)
@@ -25,6 +27,15 @@ X turns uploaded GIFs into MP4 videos, so there is no "Save as GIF" on the web. 
 | English and Simplified Chinese UI, following the browser language                                                                                                                | ✅ Done |
 
 Direct messages (XChat) have no tweet action bar, so the button doesn't appear there.
+
+## Screenshots
+
+<p>
+  <img src="docs/store/screenshots/1-save-en.png" alt="One click on the Save GIF button in the action bar saves the GIF" width="49%">
+  <img src="docs/store/screenshots/2-menu-en.png" alt="Right-click the button to pick a preset for this download only" width="49%">
+  <img src="docs/store/screenshots/3-presets-en.png" alt="Options page: the built-in Original, Balanced and Sticker presets" width="49%">
+  <img src="docs/store/screenshots/4-custom-en.png" alt="Creating a custom preset: size, frame rate, colors and size limit" width="49%">
+</p>
 
 ## Install
 
@@ -76,21 +87,25 @@ CI (GitHub Actions) runs `pnpm install --frozen-lockfile`, `pnpm check` and `pnp
 ## Project layout
 
 ```
-src/
-  adapters/      Site adapters (find GIFs, author, tweet ID)
-  core/          Types, message protocol, settings, file names
-  pipeline/      Conversion pipeline (runs in a Worker) and encoders; __fixtures__/ holds synthetic test samples
-  ui/            Action bar button, right-click preset menu, fallback progress toast (Shadow DOM)
-  entrypoints/   background / content script / offscreen / options page
-  locales/       UI text: en.json (default) and zh_CN.json, keep the keys in sync
-public/icons/    Extension icons (16/32/48/128 PNG + source icon.svg)
-e2e/             End-to-end tests (Playwright, sample page and notes)
-docs/
-  TECH-DESIGN.md Technical design
-  ROADMAP.md     Roadmap
-  media/         Demo recording and screenshots used in the README
-  store/         Chrome Web Store listing copy, dashboard answers, screenshots and promo tile
-PRIVACY.md       Privacy policy (linked from the store listing)
+.
+├── src/
+│   ├── adapters/      Site adapters (find GIFs, author, tweet ID)
+│   ├── core/          Types, message protocol, settings, file names
+│   ├── pipeline/      Conversion pipeline (runs in a Worker) and encoders; __fixtures__/ holds synthetic test samples
+│   ├── ui/            Action bar button, right-click preset menu, fallback progress toast (Shadow DOM)
+│   ├── entrypoints/   background / content script / offscreen / options page
+│   ├── locales/       UI text: en.json (default) and zh_CN.json, keep the keys in sync
+│   ├── testing/       Unit-test helpers (#i18n backed by en.json)
+│   └── types/         Type declarations for untyped packages (gifenc)
+├── public/icons/      Extension icons (16/32/48/128 PNG + source icon.svg)
+├── e2e/               End-to-end tests (Playwright, sample page and notes)
+├── scripts/           Release notes extraction for the release workflow, store image export
+├── docs/
+│   ├── TECH-DESIGN.md Technical design
+│   ├── ROADMAP.md     Roadmap
+│   ├── media/         Demo recording and install screenshot used in the README
+│   └── store/         Chrome Web Store listing copy, dashboard answers, screenshots and promo tile
+└── PRIVACY.md         Privacy policy (linked from the store listing)
 ```
 
 ## Docs

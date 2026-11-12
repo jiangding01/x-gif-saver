@@ -121,36 +121,47 @@ content script 另有两条只发给 background 的消息：按钮右键菜单�
 ### 4.1 目录
 
 ```
-src/
-  adapters/x.ts            站点适配：识别推文自己的 GIF、取作者与推文 ID
-  core/types.ts            领域类型（Preset / Settings / GifSource / Job / FinalParams）
-  core/messages.ts         三方消息协议
-  core/defaults.ts         默认设置与内置预设（纯数据，不依赖 WXT）
-  core/settings.ts         设置存储（带版本迁移）与 resolvePreset
-  core/presets.ts          预设管理纯函数：校验、新建、修改、删除/撤销、设默认、恢复出厂
-  core/filename.ts         下载路径渲染、清洗与校验（设置页示例与 background 下载共用）
-  core/errors.ts           转换失败的错误码（JobError），不依赖 i18n，Worker 也引用
-  pipeline/run.ts          转换流水线主流程（Worker 内运行）
-  pipeline/demux.ts        取源 + 拆封装：fetch MP4，mp4box 取轨道信息、avcC 与样本
-  pipeline/decode.ts       解码：VideoDecoder 生命周期与背压，按显示顺序产出 VideoFrame
-  pipeline/transform.ts    变换：输出尺寸（fitSize）、抽帧计划与帧延迟（planFrames）
-  pipeline/degrade.ts      目标体积降级：四级参数（degradeSteps）
-  pipeline/worker.ts       Worker 入口：接任务、转发进度、可取消
-  pipeline/timing.ts       帧延迟计算（厘秒，累计取整）
-  pipeline/dither.ts       有序抖动：Bayer 8×8、rgb565 惰性查找表
-  pipeline/encoders/       编码器注册表与实现
-  ui/button.ts             操作栏「存 GIF」按钮（Shadow DOM）
-  ui/presetMenu.ts         按钮的右键预设菜单（Popover）
-  ui/toast.ts              右键菜单兜底的进度提示条
-  ui/errorText.ts          把错误码翻译成当前语言
-  locales/                 界面文案：en.json（默认）与 zh_CN.json；locales.test.ts 检查键名与格式
-  testing/i18n.ts          单测用的 #i18n：读 en.json（vitest.config.ts 里配置别名），断言按英文写
-  entrypoints/background.ts
-  entrypoints/x.content.ts
-  entrypoints/offscreen/   offscreen 文档
-  entrypoints/options/     设置页（React）：预设列表、行内编辑、新建弹窗、抖动色样、保存位置
-  types/gifenc.d.ts        gifenc 类型声明
-public/icons/              插件图标：manifest 与工具栏用 PNG，设置页标题用原稿 icon.svg
+.
+├── src/
+│   ├── adapters/
+│   │   └── x.ts          站点适配：识别推文自己的 GIF、取作者与推文 ID
+│   ├── core/
+│   │   ├── types.ts      领域类型（Preset / Settings / GifSource / Job / FinalParams）
+│   │   ├── messages.ts   三方消息协议
+│   │   ├── defaults.ts   默认设置与内置预设（纯数据，不依赖 WXT）
+│   │   ├── settings.ts   设置存储（带版本迁移）与 resolvePreset
+│   │   ├── presets.ts    预设管理纯函数：校验、新建、修改、删除/撤销、设默认、恢复出厂
+│   │   ├── filename.ts   下载路径渲染、清洗与校验（设置页示例与 background 下载共用）
+│   │   └── errors.ts     转换失败的错误码（JobError），不依赖 i18n，Worker 也引用
+│   ├── pipeline/
+│   │   ├── run.ts        转换流水线主流程（Worker 内运行）
+│   │   ├── demux.ts      取源 + 拆封装：fetch MP4，mp4box 取轨道信息、avcC 与样本
+│   │   ├── decode.ts     解码：VideoDecoder 生命周期与背压，按显示顺序产出 VideoFrame
+│   │   ├── transform.ts  变换：输出尺寸（fitSize）、抽帧计划与帧延迟（planFrames）
+│   │   ├── degrade.ts    目标体积降级：四级参数（degradeSteps）
+│   │   ├── worker.ts     Worker 入口：接任务、转发进度、可取消
+│   │   ├── timing.ts     帧延迟计算（厘秒，累计取整）
+│   │   ├── dither.ts     有序抖动：Bayer 8×8、rgb565 惰性查找表
+│   │   └── encoders/     编码器注册表与实现
+│   ├── ui/
+│   │   ├── button.ts     操作栏「存 GIF」按钮（Shadow DOM）
+│   │   ├── presetMenu.ts 按钮的右键预设菜单（Popover）
+│   │   ├── state.ts      按钮状态纯函数：消息 → 任务状态 → 按钮视图（content script 只管路由与定时器）
+│   │   ├── toast.ts      右键菜单兜底的进度提示条
+│   │   ├── font.ts       注入界面用的字体栈，与 X 一致（TwitterChirp 打头），菜单与提示条共用
+│   │   └── errorText.ts  把错误码翻译成当前语言
+│   ├── locales/          界面文案：en.json（默认）与 zh_CN.json；locales.test.ts 检查键名与格式
+│   ├── testing/
+│   │   └── i18n.ts       单测用的 #i18n：读 en.json（vitest.config.ts 里配置别名），断言按英文写
+│   ├── entrypoints/
+│   │   ├── background.ts
+│   │   ├── x.content.ts
+│   │   ├── offscreen/    offscreen 文档
+│   │   └── options/      设置页（React）：预设列表、行内编辑、新建弹窗、抖动色样、保存位置
+│   └── types/
+│       └── gifenc.d.ts   gifenc 类型声明
+└── public/
+    └── icons/            插件图标：manifest 与工具栏用 PNG，设置页标题用原稿 icon.svg
 ```
 
 ### 4.2 扩展点
