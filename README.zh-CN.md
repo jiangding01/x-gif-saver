@@ -89,7 +89,7 @@ docs/
   TECH-DESIGN.md 技术方案
   ROADMAP.md     路线图
   media/         README 用的演示录屏与截图
-  store/         Chrome 应用商店上架文案与后台填写内容
+  store/         Chrome 应用商店上架文案、后台填写内容、截图与小宣传图
 PRIVACY.md       隐私政策（商店列表页引用）
 ```
 

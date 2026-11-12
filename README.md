@@ -89,7 +89,7 @@ docs/
   TECH-DESIGN.md Technical design
   ROADMAP.md     Roadmap
   media/         Demo recording and screenshots used in the README
-  store/         Chrome Web Store listing copy and dashboard answers
+  store/         Chrome Web Store listing copy, dashboard answers, screenshots and promo tile
 PRIVACY.md       Privacy policy (linked from the store listing)
 ```
 
