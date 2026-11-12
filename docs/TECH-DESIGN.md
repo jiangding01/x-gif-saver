@@ -25,14 +25,15 @@ X 会把用户上传的 GIF 转成 MP4 存储和播放，服务器上没有原�
 
 ## 2. 关键事实（已核实）
 
-| 事实                                                                                                                                                                      | 核实方式       | 影响                                                           |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------- | -------------------------------------------------------------- |
-| GIF 视频地址为 `video.twimg.com/tweet_video/<mediaId>.mp4`，封面为 `pbs.twimg.com/tweet_video_thumb/<mediaId>.jpg`；普通视频为 `blob:` / `amplify_video` / `ext_tw_video` | 用户提供的 DOM | 按媒体地址识别 GIF，不依赖样式类名                             |
-| 样本 MP4：H.264，480×480，15fps，65 帧，4.33s，109KB                                                                                                                      | ffprobe        | 估算性能与体积；单测样本                                       |
-| `video.twimg.com` 返回 `access-control-allow-origin: https://x.com`                                                                                                       | curl           | 转码放在扩展 origin，靠 host_permissions 绕过 CORS，与该头无关 |
-| x.com CSP：`worker-src 'self' blob: https://*.twimg.com …`                                                                                                                | curl           | **content script 里起不了扩展 Worker** → 转码放 offscreen 文档 |
-| gifenc 不支持抖动，README 自述不适合视频                                                                                                                                  | README         | 自实现有序抖动；编码器可插拔，后续可接 gifski                  |
-| gifski-wasm 2.2.0 为 AGPL-3.0                                                                                                                                             | npm            | 自用无碍，上架商店须开源 → 暂缓                                |
+| 事实                                                                                                                                                                      | 核实方式              | 影响                                                           |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------- | -------------------------------------------------------------- |
+| GIF 视频地址为 `video.twimg.com/tweet_video/<mediaId>.mp4`，封面为 `pbs.twimg.com/tweet_video_thumb/<mediaId>.jpg`；普通视频为 `blob:` / `amplify_video` / `ext_tw_video` | 用户提供的 DOM        | 按媒体地址识别 GIF，不依赖样式类名                             |
+| 样本 MP4：H.264，480×480，15fps，65 帧，109KB；容器（mvhd/mdhd/elst）时长 434cs，ffprobe 显示 4.33s；时间单位 1/100 秒，带 edit list                                      | ffprobe + mp4box      | 估算性能与体积；验收基准以容器时长为准                         |
+| offscreen 创建的 Worker 里 `fetch(video.twimg.com)` 不受 CORS 限制（扩展 origin + host_permissions）                                                                      | 2026-11-12 端到端实测 | 取源放在 Worker 里，不需要经 offscreen 主线程中转              |
+| `video.twimg.com` 返回 `access-control-allow-origin: https://x.com`                                                                                                       | curl                  | 转码放在扩展 origin，靠 host_permissions 绕过 CORS，与该头无关 |
+| x.com CSP：`worker-src 'self' blob: https://*.twimg.com …`                                                                                                                | curl                  | **content script 里起不了扩展 Worker** → 转码放 offscreen 文档 |
+| gifenc 不支持抖动，README 自述不适合视频                                                                                                                                  | README                | 自实现有序抖动；编码器可插拔，后续可接 gifski                  |
+| gifski-wasm 2.2.0 为 AGPL-3.0                                                                                                                                             | npm                   | 自用无碍，上架商店须开源 → 暂缓                                |
 
 ## 3. 交互设计
 
@@ -246,14 +247,16 @@ Settings = { defaultPresetId, presets: Preset[], filenameTemplate, subfolder }
 
 ## 11. 决策记录
 
-| 日期       | 决策                                                                                  | 放弃的方案及原因                                                       |
-| ---------- | ------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| 2026-11-11 | 转码放 offscreen 文档 + Worker                                                        | content script 内转码：x.com CSP 拦扩展 Worker，且会卡页面             |
-| 2026-11-11 | mp4box.js + WebCodecs 解码                                                            | `<video>` seek 抽帧：落在关键帧附近，重帧丢帧且慢                      |
-| 2026-11-11 | gifenc + 自实现有序抖动                                                               | ffmpeg.wasm：核心体积 30MB+；gif.js：慢且已停更                        |
-| 2026-11-11 | gifski 暂缓到 M3                                                                      | AGPL-3.0，上架须开源；先看 M1 画质                                     |
-| 2026-11-11 | 入口只放操作栏按钮 + 右键菜单                                                         | GIF 浮层按钮：用户确认会影响正常使用                                   |
-| 2026-11-11 | 配置项 C1–C8 纳入，C9 暂缓，C10 不做                                                  | —                                                                      |
-| 2026-11-11 | 大图弹窗单独识别：取弹窗内 article 外的 GIF，作者/ID 取自地址栏，按钮挂弹窗底部操作栏 | 只认 article：实测弹窗的 GIF 不在任何 article 里，弹窗内不会出按钮     |
-| 2026-11-11 | 私信移出操作栏按钮的验收范围                                                          | 适配 XChat：私信已迁到 `/i/chat`，没有推文操作栏；由 M2-5 右键菜单兜底 |
-| 2026-11-11 | 引入 happy-dom 给 DOM 识别逻辑写单测（仅开发依赖）                                    | 只靠手动验收：X 改版时回归成本高                                       |
+| 日期       | 决策                                                                                  | 放弃的方案及原因                                                               |
+| ---------- | ------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| 2026-11-11 | 转码放 offscreen 文档 + Worker                                                        | content script 内转码：x.com CSP 拦扩展 Worker，且会卡页面                     |
+| 2026-11-11 | mp4box.js + WebCodecs 解码                                                            | `<video>` seek 抽帧：落在关键帧附近，重帧丢帧且慢                              |
+| 2026-11-11 | gifenc + 自实现有序抖动                                                               | ffmpeg.wasm：核心体积 30MB+；gif.js：慢且已停更                                |
+| 2026-11-11 | gifski 暂缓到 M3                                                                      | AGPL-3.0，上架须开源；先看 M1 画质                                             |
+| 2026-11-11 | 入口只放操作栏按钮 + 右键菜单                                                         | GIF 浮层按钮：用户确认会影响正常使用                                           |
+| 2026-11-11 | 配置项 C1–C8 纳入，C9 暂缓，C10 不做                                                  | —                                                                              |
+| 2026-11-11 | 大图弹窗单独识别：取弹窗内 article 外的 GIF，作者/ID 取自地址栏，按钮挂弹窗底部操作栏 | 只认 article：实测弹窗的 GIF 不在任何 article 里，弹窗内不会出按钮             |
+| 2026-11-11 | 私信移出操作栏按钮的验收范围                                                          | 适配 XChat：私信已迁到 `/i/chat`，没有推文操作栏；由 M2-5 右键菜单兜底         |
+| 2026-11-11 | 引入 happy-dom 给 DOM 识别逻辑写单测（仅开发依赖）                                    | 只靠手动验收：X 改版时回归成本高                                               |
+| 2026-11-12 | 拆封装后把显示时间戳统一减去最小 cts，首帧从 0 开始                                   | 直接用 mp4box 的 cts：它不应用 edit list，带 B 帧时整体偏移约 2 帧，时长会多算 |
+| 2026-11-12 | 单测用 ffmpeg 合成的样本（参数对齐真实样本），不提交 X 上的真实 GIF                   | 提交真实样本：版权属于上传者，仓库公开                                         |
