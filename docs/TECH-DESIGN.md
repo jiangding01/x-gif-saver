@@ -107,7 +107,7 @@ src/
   core/defaults.ts         默认设置与内置预设（纯数据，不依赖 WXT）
   core/settings.ts         设置存储（带版本迁移）与 resolvePreset
   core/presets.ts          预设管理纯函数：校验、新建、修改、删除/撤销、设默认、恢复出厂
-  core/filename.ts         文件名模板渲染
+  core/filename.ts         下载路径渲染、清洗与校验（设置页示例与 background 下载共用）
   pipeline/run.ts          转换流水线主流程（Worker 内运行）
   pipeline/demux.ts        取源 + 拆封装：fetch MP4，mp4box 取轨道信息、avcC 与样本
   pipeline/decode.ts       解码：VideoDecoder 生命周期与背压，按显示顺序产出 VideoFrame
@@ -120,7 +120,7 @@ src/
   entrypoints/background.ts
   entrypoints/x.content.ts
   entrypoints/offscreen/   offscreen 文档
-  entrypoints/options/     设置页（React）：预设列表、行内编辑、新建弹窗、抖动色样
+  entrypoints/options/     设置页（React）：预设列表、行内编辑、新建弹窗、抖动色样、保存位置
   types/gifenc.d.ts        gifenc 类型声明
 public/icons/              插件图标：manifest 与工具栏用 PNG，设置页标题用原稿 icon.svg
 ```
@@ -216,17 +216,17 @@ Settings = { defaultPresetId, presets: Preset[], filenameTemplate, subfolder }
 
 ### 6.3 配置项与里程碑
 
-| #   | 配置                                                                                             | 里程碑               |
-| --- | ------------------------------------------------------------------------------------------------ | -------------------- |
-| C1  | 预设方案（内置 + 自定义）                                                                        | M2-1                 |
-| C2  | 最长边上限                                                                                       | M2-1                 |
-| C3  | 帧率上限                                                                                         | M2-1                 |
-| C4  | 颜色数 + 抖动开关                                                                                | M2-1                 |
-| C5  | 目标体积上限 + 自动降级                                                                          | M2-4                 |
-| C6  | 文件名模板 `{author}` `{tweetId}` `{date}` + 子目录（默认 `{tweetId}_{author}`、子目录 `X-GIF`） | M2-2                 |
-| C7  | 右键按钮临时切换预设                                                                             | M2-3                 |
-| C8  | 右键菜单「保存为 GIF」                                                                           | M2-5                 |
-| C9  | gifski 高质量编码器                                                                              | M3（视 M1 画质决定） |
+| #   | 配置                                                                                  | 里程碑               |
+| --- | ------------------------------------------------------------------------------------- | -------------------- |
+| C1  | 预设方案（内置 + 自定义）                                                             | M2-1                 |
+| C2  | 最长边上限                                                                            | M2-1                 |
+| C3  | 帧率上限                                                                              | M2-1                 |
+| C4  | 颜色数 + 抖动开关                                                                     | M2-1                 |
+| C5  | 目标体积上限 + 自动降级                                                               | M2-4                 |
+| C6  | 文件名模板 `{tweetId}` `{author}` `{date}` + 文件夹（可多层、可用变量，默认 `X-GIF`） | M2-2                 |
+| C7  | 右键按钮临时切换预设                                                                  | M2-3                 |
+| C8  | 右键菜单「保存为 GIF」                                                                | M2-5                 |
+| C9  | gifski 高质量编码器                                                                   | M3（视 M1 画质决定） |
 
 ## 7. 权限
 
