@@ -1,27 +1,53 @@
 // background（Service Worker）：任务调度中心。
 //   - 接收 content script 的下载请求 → 读设置、生成 Job → 交给 offscreen
-//   - 转发 offscreen 的进度/结果给发起请求的标签页
+//   - 转发 offscreen 的进度/结果给发起请求的标签页（带上 requestId + mediaId，content 据此找到按钮）
 //   - 用 chrome.downloads 落盘，下载结束后通知 offscreen 回收 blob URL
 //
-// 注意：SW 可能被回收，jobs 只存在内存里。转换期间 offscreen 持续发进度消息会让 SW 保持存活；
-// 若 M1 实测仍有丢任务的情况，再把 jobs 挪到 storage.session（见 TECH-DESIGN「风险」）。
+// SW 可能在转换途中被回收（风险 R3）：任务表与已取消的请求存进 storage.session，重启后从中恢复，
+// 否则进度消息无处转发、转好的 GIF 也不会下载。content 另有超时兜底。
 
-import { browser, defineBackground } from '#imports';
+import { browser, defineBackground, storage } from '#imports';
 import { renderFilename } from '../core/filename';
 import { isToBackground, type ToContent, type ToOffscreen } from '../core/messages';
 import { resolvePreset, settingsItem } from '../core/settings';
 import type { Job } from '../core/types';
 
-type JobMeta = { tabId: number; filename: string };
+type JobMeta = { tabId: number; filename: string; requestId: string; mediaId: string };
+type Persisted = { jobs: Record<string, JobMeta>; cancelled: string[] };
 
 const OFFSCREEN_PATH = '/offscreen.html';
+/** 已取消请求最多记多少个（只为挡住取消后迟到的结果，不需要长期保留） */
+const MAX_CANCELLED = 50;
+
+const persistedItem = storage.defineItem<Persisted>('session:jobs', {
+  fallback: { jobs: {}, cancelled: [] },
+});
 
 export default defineBackground(() => {
   const jobs = new Map<string, JobMeta>();
+  const cancelled = new Set<string>();
   const blobByDownloadId = new Map<number, string>();
   /** 待下载的 blob URL → 文件名，供 onDeterminingFilename 认领自己的下载 */
   const filenameByBlobUrl = new Map<string, string>();
   let creating: Promise<void> | null = null;
+
+  // 启动时恢复；所有消息处理都先等它完成
+  const restored = persistedItem
+    .getValue()
+    .then((saved) => {
+      for (const [id, meta] of Object.entries(saved.jobs)) jobs.set(id, meta);
+      for (const id of saved.cancelled) cancelled.add(id);
+    })
+    // 读不到就当没有旧任务，不能让之后的所有消息都卡在 await 上
+    .catch(() => {});
+  const persist = () =>
+    void persistedItem
+      .setValue({ jobs: Object.fromEntries(jobs), cancelled: [...cancelled] })
+      .catch(() => {});
+  const forgetJob = (jobId: string) => {
+    jobs.delete(jobId);
+    persist();
+  };
 
   const ensureOffscreen = async () => {
     const url = browser.runtime.getURL(OFFSCREEN_PATH);
@@ -47,72 +73,123 @@ export default defineBackground(() => {
     await browser.runtime.sendMessage(msg);
   };
 
-  const toTab = (jobId: string, msg: ToContent) => {
-    const meta = jobs.get(jobId);
-    if (meta) void browser.tabs.sendMessage(meta.tabId, msg).catch(() => {});
+  const toTabId = (tabId: number, msg: ToContent) => {
+    void browser.tabs.sendMessage(tabId, msg).catch(() => {});
+  };
+
+  const cancelRequest = async (requestId: string) => {
+    cancelled.add(requestId);
+    while (cancelled.size > MAX_CANCELLED) {
+      const oldest = cancelled.values().next().value;
+      if (oldest === undefined) break;
+      cancelled.delete(oldest);
+    }
+    for (const [jobId, meta] of jobs) {
+      if (meta.requestId !== requestId) continue;
+      jobs.delete(jobId);
+      await toOffscreen({ target: 'offscreen', type: 'job:cancel', jobId }).catch(() => {});
+    }
+    persist();
   };
 
   browser.runtime.onMessage.addListener((msg: unknown, sender) => {
     if (!isToBackground(msg)) return;
     void (async () => {
+      await restored;
       switch (msg.type) {
         case 'job:start': {
           const tabId = sender.tab?.id;
           if (tabId === undefined) return;
-          const settings = await settingsItem.getValue();
-          const preset = resolvePreset(settings, msg.presetId);
-          const total = msg.sources.length;
-          for (const [i, source] of msg.sources.entries()) {
-            const job: Job = {
-              id: crypto.randomUUID(),
-              source,
-              preset,
-              filename: renderFilename(
-                settings.filenameTemplate,
-                settings.subfolder,
+          const { requestId } = msg;
+          try {
+            const settings = await settingsItem.getValue();
+            const preset = resolvePreset(settings, msg.presetId);
+            const total = msg.sources.length;
+            for (const [i, source] of msg.sources.entries()) {
+              // 用户在 background 处理期间已取消：剩下的 GIF 不再开始
+              if (cancelled.has(requestId)) return;
+              const job: Job = {
+                id: crypto.randomUUID(),
                 source,
-                i + 1,
-                total,
-              ),
-            };
-            jobs.set(job.id, { tabId, filename: job.filename });
-            toTab(job.id, { type: 'job:queued', jobId: job.id, mediaId: source.mediaId });
-            try {
-              await toOffscreen({ target: 'offscreen', type: 'job:run', job });
-            } catch (err) {
-              // offscreen 创建失败或消息送不到：不能让按钮停在「排队」
-              toTab(job.id, {
-                type: 'job:error',
-                jobId: job.id,
-                message: `无法启动转换：${String(err)}`,
+                preset,
+                filename: renderFilename(
+                  settings.filenameTemplate,
+                  settings.subfolder,
+                  source,
+                  i + 1,
+                  total,
+                ),
+              };
+              jobs.set(job.id, {
+                tabId,
+                filename: job.filename,
+                requestId,
+                mediaId: source.mediaId,
               });
-              jobs.delete(job.id);
+              persist();
+              toTabId(tabId, {
+                target: 'content',
+                type: 'job:queued',
+                requestId,
+                mediaId: source.mediaId,
+              });
+              await toOffscreen({ target: 'offscreen', type: 'job:run', job });
+              // 派发期间（例如等 offscreen 创建）用户取消了：取消时 offscreen 还不认识这个 job，这里补发
+              if (cancelled.has(requestId)) {
+                await toOffscreen({ target: 'offscreen', type: 'job:cancel', jobId: job.id });
+                return;
+              }
             }
+          } catch (err) {
+            // 读设置失败、offscreen 创建失败等：整个请求判失败（已派发的也取消），不能让按钮停在「排队」
+            await cancelRequest(requestId);
+            toTabId(tabId, {
+              target: 'content',
+              type: 'job:error',
+              requestId,
+              message: `无法启动转换：${err instanceof Error ? err.message : String(err)}`,
+            });
           }
           return;
         }
         case 'job:cancel':
-          await toOffscreen({ target: 'offscreen', type: 'job:cancel', jobId: msg.jobId });
+          await cancelRequest(msg.requestId);
           return;
-        case 'job:progress':
-          toTab(msg.jobId, {
+        case 'job:progress': {
+          const meta = jobs.get(msg.jobId);
+          if (!meta) return;
+          toTabId(meta.tabId, {
+            target: 'content',
             type: 'job:progress',
-            jobId: msg.jobId,
+            requestId: meta.requestId,
+            mediaId: meta.mediaId,
             stage: msg.stage,
             ratio: msg.ratio,
           });
           return;
-        case 'job:error':
-          toTab(msg.jobId, { type: 'job:error', jobId: msg.jobId, message: msg.message });
-          jobs.delete(msg.jobId);
+        }
+        case 'job:error': {
+          const meta = jobs.get(msg.jobId);
+          if (!meta) return;
+          forgetJob(msg.jobId);
+          toTabId(meta.tabId, {
+            target: 'content',
+            type: 'job:error',
+            requestId: meta.requestId,
+            mediaId: meta.mediaId,
+            message: msg.message,
+          });
           return;
+        }
         case 'job:done': {
           const meta = jobs.get(msg.jobId);
-          if (!meta) {
-            // SW 重启后 jobs 丢失（风险 R3）：至少回收 blob，避免 offscreen 内存泄漏
+          // 找不到：已取消（取消时已移出任务表），或任务表丢失。都不下载，只回收 blob
+          if (!meta || cancelled.has(meta.requestId)) {
+            if (meta) forgetJob(msg.jobId);
             await toOffscreen({ target: 'offscreen', type: 'blob:revoke', blobUrl: msg.blobUrl });
             return;
           }
+          forgetJob(msg.jobId);
           // 先登记再下载：onDeterminingFilename 可能早于 download() 返回 downloadId 触发
           filenameByBlobUrl.set(msg.blobUrl, meta.filename);
           try {
@@ -122,17 +199,24 @@ export default defineBackground(() => {
               conflictAction: 'uniquify',
             });
             blobByDownloadId.set(downloadId, msg.blobUrl);
-            toTab(msg.jobId, { type: 'job:done', jobId: msg.jobId, params: msg.params });
+            toTabId(meta.tabId, {
+              target: 'content',
+              type: 'job:done',
+              requestId: meta.requestId,
+              mediaId: meta.mediaId,
+              params: msg.params,
+            });
           } catch (err) {
             filenameByBlobUrl.delete(msg.blobUrl);
             await toOffscreen({ target: 'offscreen', type: 'blob:revoke', blobUrl: msg.blobUrl });
-            toTab(msg.jobId, {
+            toTabId(meta.tabId, {
+              target: 'content',
               type: 'job:error',
-              jobId: msg.jobId,
-              message: `保存失败：${String(err)}`,
+              requestId: meta.requestId,
+              mediaId: meta.mediaId,
+              message: `保存失败：${err instanceof Error ? err.message : String(err)}`,
             });
           }
-          jobs.delete(msg.jobId);
           return;
         }
       }

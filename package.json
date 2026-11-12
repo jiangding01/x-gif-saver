@@ -1,7 +1,7 @@
 {
   "name": "x-gif-saver",
   "description": "一键把 X（Twitter）上的 GIF 保存为真正的 .gif 文件",
-  "version": "0.0.2",
+  "version": "0.0.3",
   "license": "MIT",
   "private": true,
   "type": "module",
