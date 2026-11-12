@@ -51,6 +51,15 @@ describe('demuxMp4', () => {
     );
   });
 
+  it('可变帧率 + B 帧：总时长取容器 edit list，不用「最后显示帧 + 解码顺序的样本时长」', async () => {
+    // 前 5 帧间隔 30ms，之后 250ms；最后一帧在 3.65s 开始，edit list 记录 3.66s。
+    // 旧算法会给最后显示的帧套上别的帧的 250ms，得到 3.90s（X 上的可变帧率 GIF 实测多算 0.2s）
+    const d = await demuxMp4(loadFixture('testsrc-vfr-160.mp4'));
+    const shown = d.samples.map((s) => s.timestampUs).sort((a, b) => a - b);
+    expect(shown.at(-1)).toBe(3_650_000);
+    expect(d.durationUs).toBe(3_660_000);
+  });
+
   it('不是 MP4 时报错', async () => {
     const junk = new TextEncoder().encode('definitely not an mp4 file').buffer as ArrayBuffer;
     await expect(demuxMp4(junk)).rejects.toThrow(/不是有效的视频文件|视频解析/);

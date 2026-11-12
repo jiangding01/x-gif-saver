@@ -53,6 +53,8 @@ export const demuxMp4 = (buffer: ArrayBuffer): Promise<Demuxed> =>
     const file = createFile();
     const collected: Sample[] = [];
     let expected = 0;
+    /** 容器定义的播放时长（微秒）：单段 edit list 优先，其次 mdhd；0 表示没有 */
+    let containerUs = 0;
     // 用类型断言初始化：header 只在回调里赋值，避免 TS 把它收窄成 null
     let header = null as Omit<Demuxed, 'samples' | 'durationUs'> | null;
     let failed = false;
@@ -76,6 +78,14 @@ export const demuxMp4 = (buffer: ArrayBuffer): Promise<Demuxed> =>
         description: avcDescription(entry.avcC),
       };
       expected = track.nb_samples;
+      const edits = (track.edits ?? []).filter((e) => e.media_time >= 0);
+      const edit = edits.length === 1 ? edits[0] : undefined;
+      // segment_duration 为 0（分片 MP4 的常见写法）时没有意义，退回 mdhd
+      if (edit && edit.segment_duration > 0 && info.timescale > 0) {
+        containerUs = Math.round((edit.segment_duration * 1_000_000) / info.timescale);
+      } else if (track.timescale > 0) {
+        containerUs = Math.round((track.duration * 1_000_000) / track.timescale);
+      }
       // 必须在 onReady 里设置并 start，appendBuffer 随后的 processSamples 才会回调 onSamples
       file.setExtractionOptions(track.id, null, { nbSamples: expected });
       file.start();
@@ -101,13 +111,18 @@ export const demuxMp4 = (buffer: ArrayBuffer): Promise<Demuxed> =>
     const minCts = Math.min(...collected.map((s) => s.cts));
     const toUs = (t: number, timescale: number) => Math.round((t * 1_000_000) / timescale);
     let endUs = 0;
+    let lastUs = 0;
     const samples: DemuxedSample[] = collected.map((s) => {
       const timestampUs = toUs(s.cts - minCts, s.timescale);
       const durationUs = toUs(s.duration, s.timescale);
       endUs = Math.max(endUs, timestampUs + durationUs);
+      lastUs = Math.max(lastUs, timestampUs);
       if (!s.data) throw new Error('视频样本缺少数据');
       return { data: s.data, timestampUs, durationUs, isKey: s.is_sync };
     });
-    // 真实样本实测与容器的 mvhd/mdhd/elst 时长一致（434cs）；ffprobe 显示 4.33s 是它自己的换算
-    resolve({ ...header, durationUs: endUs, samples });
+    // 总时长以容器为准。不能用「最后显示帧的开始 + 样本时长」：样本时长按解码顺序记录，
+    // 可变帧率且带 B 帧时，最后显示的帧拿到的是别的帧的时长（实测 X 的 GIF 多算 0.2s）。
+    // 容器时长不晚于最后一帧开始（文件异常）时才退回该估算。ffprobe 的时长不可靠，不作为基准
+    const durationUs = containerUs > lastUs ? containerUs : endUs;
+    resolve({ ...header, durationUs, samples });
   });
