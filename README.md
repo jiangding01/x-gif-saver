@@ -59,6 +59,7 @@ src/
   pipeline/      转换流水线（Worker 内运行）与编码器；__fixtures__/ 为合成测试样本
   ui/            操作栏按钮（Shadow DOM）
   entrypoints/   background / content script / offscreen / 设置页
+public/icons/    插件图标（16/32/48/128 PNG + 原稿 icon.svg）
 docs/
   TECH-DESIGN.md 技术方案
   ROADMAP.md     路线图

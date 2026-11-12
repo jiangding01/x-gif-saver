@@ -122,6 +122,7 @@ src/
   entrypoints/offscreen/   offscreen 文档
   entrypoints/options/     设置页（React）：预设列表、行内编辑、新建弹窗、抖动色样
   types/gifenc.d.ts        gifenc 类型声明
+public/icons/              插件图标：manifest 与工具栏用 PNG，设置页标题用原稿 icon.svg
 ```
 
 ### 4.2 扩展点

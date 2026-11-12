@@ -32,14 +32,8 @@ const HIGHLIGHT_MS = 1600;
 
 const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-const Mark = () => (
-  <svg className="mark" viewBox="0 0 24 24" aria-hidden="true">
-    <text x="12" y="6.4" textAnchor="middle">
-      GIF
-    </text>
-    <path d="M12 9.5v5.5M9 12l3 3 3-3M3.5 14.5v4a2 2 0 0 0 2 2h13a2 2 0 0 0 2-2v-4" />
-  </svg>
-);
+/** 插件图标原稿（public/icons/icon.svg），旁边已有文字名称，按装饰图处理 */
+const Mark = () => <img className="mark" src="/icons/icon.svg" alt="" width={28} height={28} />;
 
 const PlusIcon = () => (
   <svg viewBox="0 0 24 24" aria-hidden="true">
