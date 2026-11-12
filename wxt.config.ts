@@ -12,5 +12,7 @@ export default defineConfig({
     // contextMenus 在 M2-5（右键菜单兜底）时再加
     permissions: ['downloads', 'offscreen', 'storage'],
     host_permissions: ['https://x.com/*', 'https://twitter.com/*', 'https://video.twimg.com/*'],
+    // 工具栏按钮：点击打开设置页（background 监听 action.onClicked），不需要额外权限
+    action: { default_title: 'X GIF Saver 设置' },
   },
 });
