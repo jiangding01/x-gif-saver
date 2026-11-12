@@ -12,6 +12,7 @@
 
 - README 改为英文版（默认），中文版移到 `README.zh-CN.md`，两版顶部互相跳转；补充「从 Release 安装」步骤与截图、演示录屏
 - 新增隐私政策 `PRIVACY.md`（中英双语）和 Chrome 应用商店上架资料 `docs/store/LISTING.md`（列表介绍、单一用途、权限理由、数据使用声明）
+- 新增商店小宣传图（440×280，中英各一张）及其 HTML 源文件和导出脚本 `scripts/render-promo.mjs`
 
 ### 工程
 
