@@ -210,3 +210,29 @@ test('按钮注入失效时：在 GIF 上右键后点「保存为 GIF」仍能�
   expect(file.header).toBe('GIF89a');
   await page.close();
 });
+
+// 放在最后：重新加载插件会换掉 service worker，之后的用例拿不到原来的 worker
+test('插件重新加载后：没刷新页面里的旧脚本立即停止，不再报错', async () => {
+  const page = await openTweet();
+  const host = page.locator('xgs-save-button');
+  await expect(host).toHaveCount(1);
+  // 内容脚本在 isolated world 里，pageerror 收不到；用 CDP 收所有执行上下文的未捕获异常
+  const errors: string[] = [];
+  const cdp = await context.newCDPSession(page);
+  cdp.on('Runtime.exceptionThrown', (e) => {
+    errors.push(e.exceptionDetails.exception?.description ?? e.exceptionDetails.text);
+  });
+  await cdp.send('Runtime.enable');
+  // 模拟在 chrome://extensions 点刷新或商店自动更新：页面里的旧脚本与插件断开
+  await (await extensionWorker()).evaluate(() => chrome.runtime.reload()).catch(() => {});
+  await page.waitForTimeout(300);
+  // 模拟 X 重新渲染把按钮摘掉：旧脚本若还在运行，会重挂按钮并调用已不存在的 chrome.i18n 报错
+  await page.evaluate(() => {
+    for (const el of document.querySelectorAll('xgs-save-button')) el.remove();
+    document.body.append(document.createElement('div'));
+  });
+  await page.waitForTimeout(500);
+  expect(errors).toEqual([]);
+  await expect(host).toHaveCount(0);
+  await page.close();
+});
