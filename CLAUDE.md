@@ -20,6 +20,7 @@ Chrome MV3 插件：把 X 上的 GIF（实为 MP4）在本地转成 .gif 下载�
 - 改 `Settings` 结构：`core/settings.ts` 的 `version` +1 并写 `migrations`
 - 写设置一律用设置页的 `mutateSettings`（读最新值 → 套用 `core/presets.ts` 等纯函数 → 写回），不要拿组件 state 整份覆盖；默认数据放 `core/defaults.ts`（不依赖 WXT，单测可直接引用）
 - 新增编码器/站点按 TECH-DESIGN §4.2 的扩展点做，不改流水线主流程
+- 下载路径一律由 `core/filename.ts` 的 `renderFilename` 生成，设置页示例也调用它，保证所见即所得；清洗规则只改这一处
 - 新增权限、配置项、用户可见功能前先问用户；GIF 浮层按钮已明确不做
 
 ## 流程
@@ -36,6 +37,7 @@ Chrome MV3 插件：把 X 上的 GIF（实为 MP4）在本地转成 .gif 下载�
 - `mp4box`、`gifenc` 已声明但 M1-2 ~ M1-4 才用，不是冗余依赖
 - WXT 的 shadow 宿主带 `all: initial !important`：宿主自身的布局样式必须写在 shadow 样式表的 `:host { … !important }` 里，写在宿主内联样式上无效
 - 下载文件名由 background 的 `downloads.onDeterminingFilename` 认领：其他扩展监听该事件时 Chrome 会忽略 `download({ filename })`；监听器对别人的下载必须调用空 `suggest()`，否则会卡住所有下载
+- WXT 的静态文件目录是项目根的 `public/`（不是 `src/public`），插件图标在 `public/icons`
 - x.com 未启用 Trusted Types，content script 可用 `innerHTML` 写静态 SVG
 - X 的 DOM（2026-11-11 实测，详见 TECH-DESIGN 风险 R2 与决策记录）：引用卡片是 article 内 `div[role="link"]`；操作栏是含 `[data-testid="reply"]` 的 `[role="group"]`；大图弹窗 `[role="dialog"][aria-modal="true"]` 的 GIF 不在任何 article 里，且弹窗最外层还有一个包住一切的 group，找操作栏时要排除含 article 的 group；外层推文「复用」别人的 GIF 时它在引用卡片外，算外层自己的
 - 手动验收需要已登录 X 的 Chrome：加载 `.output/chrome-mv3`，每次重新构建后在 `chrome://extensions` 点重新加载并刷新 x.com。找样例：搜索 `gif filter:media` / `gif filter:quote`（Latest），推文地址后加 `/video/1` 打开大图弹窗
