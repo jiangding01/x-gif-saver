@@ -18,7 +18,7 @@ export type Preset = {
   colors: 256 | 128 | 64;
   dither: DitherMode;
   encoder: EncoderId;
-  /** 目标体积上限（字节），null = 不限；超限时自动降级，见 TECH-DESIGN「目标体积降级」 */
+  /** 目标体积上限（字节），null = 不限；超限时自动降级重编码，见 TECH-DESIGN §5.1 第 6 步与 pipeline/degrade.ts */
   targetBytes: number | null;
 };
 

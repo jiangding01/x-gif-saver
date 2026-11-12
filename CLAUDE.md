@@ -40,4 +40,5 @@ Chrome MV3 插件：把 X 上的 GIF（实为 MP4）在本地转成 .gif 下载�
 - WXT 的静态文件目录是项目根的 `public/`（不是 `src/public`），插件图标在 `public/icons`
 - x.com 未启用 Trusted Types，content script 可用 `innerHTML` 写静态 SVG
 - X 的 DOM（2026-11-11 实测，详见 TECH-DESIGN 风险 R2 与决策记录）：引用卡片是 article 内 `div[role="link"]`；操作栏是含 `[data-testid="reply"]` 的 `[role="group"]`；大图弹窗 `[role="dialog"][aria-modal="true"]` 的 GIF 不在任何 article 里，且弹窗最外层还有一个包住一切的 group，找操作栏时要排除含 article 的 group；外层推文「复用」别人的 GIF 时它在引用卡片外，算外层自己的
+- 浏览器右键菜单兜底（M2-5）：content script 在 window 捕获阶段记右键位置，并对 GIF 播放器（`[data-testid="videoComponent"]` 里的 GIF）上的右键 `stopImmediatePropagation`，否则 X 可能拦截、浏览器菜单不出现；不要扩大到其他元素
 - 手动验收需要已登录 X 的 Chrome：加载 `.output/chrome-mv3`，每次重新构建后在 `chrome://extensions` 点重新加载并刷新 x.com。找样例：搜索 `gif filter:media` / `gif filter:quote`（Latest），推文地址后加 `/video/1` 打开大图弹窗

@@ -121,3 +121,60 @@ export const modalTarget = (doc: Document, pathname: string): GifTarget | null =
   );
   return actionBar ? { container: modal, actionBar, sources } : null;
 };
+
+/** GIF 播放器容器（2026-11-12 实测：X 在它上面拦截右键，浏览器菜单不出现，见 TECH-DESIGN 风险 R4） */
+const PLAYER_SELECTOR = '[data-testid="videoComponent"]';
+
+/** 元素所在 GIF 播放器里的 <video>；不在 GIF 播放器里（普通视频、图片、文字）返回 null */
+export const gifPlayerAt = (el: Element): HTMLVideoElement | null => {
+  const player = el.closest(PLAYER_SELECTOR);
+  const video = player?.querySelector('video') ?? (el instanceof HTMLVideoElement ? el : null);
+  if (!video) return null;
+  return gifMediaIdFrom(video.getAttribute('src'), video.getAttribute('poster')) ? video : null;
+};
+
+/** 引用卡片里 GIF 的归属：卡片内 status 链接；拿不到时作者与推文 ID 留空，文件名回退到媒体 ID */
+const quoteMetaOf = (quote: Element): { author: string; tweetId: string } => {
+  for (const a of quote.querySelectorAll('a[href*="/status/"]')) {
+    const meta = parseStatusHref(a.getAttribute('href') ?? '');
+    if (meta) return meta;
+  }
+  return { author: '', tweetId: '' };
+};
+
+/**
+ * 右键菜单「保存为 GIF」（M2-5）：按右键位置找要保存的 GIF，不依赖操作栏（按钮注入失效时的兜底）。
+ * - 右键在 GIF 上：只存这一个；归属取所在推文（引用卡片里的算被引用推文，大图弹窗取地址栏）
+ * - 右键在推文其他位置：存这条推文自己的全部 GIF（不含引用推文的）
+ * 返回 null 表示这里没有 GIF
+ */
+export const gifsAt = (el: Element, pathname: string): GifSource[] | null => {
+  const video = gifPlayerAt(el);
+  const article = el.closest(TWEET_SELECTOR);
+  if (video) {
+    let meta: { author: string; tweetId: string } | null;
+    if (article && isInsideQuote(video, article)) {
+      meta = quoteMetaOf(video.closest(QUOTE_SELECTOR) as Element);
+    } else if (article) {
+      meta = tweetMetaOf(article);
+    } else {
+      meta = parseStatusHref(pathname);
+    }
+    const sources = toSources([video], meta ?? { author: '', tweetId: '' });
+    return sources.length > 0 ? sources : null;
+  }
+  if (article) {
+    const sources = findOwnGifs(article);
+    return sources.length > 0 ? sources : null;
+  }
+  const modal = el.closest(MODAL_SELECTOR);
+  const meta = parseStatusHref(pathname);
+  if (modal && meta) {
+    const sources = toSources(
+      [...modal.querySelectorAll('video')].filter((v) => v.closest('article') === null),
+      meta,
+    );
+    return sources.length > 0 ? sources : null;
+  }
+  return null;
+};

@@ -4,6 +4,8 @@ import {
   findActionBar,
   findOwnGifs,
   gifMediaIdFrom,
+  gifPlayerAt,
+  gifsAt,
   modalTarget,
   mp4UrlFor,
   parseStatusHref,
@@ -172,5 +174,71 @@ describe('modalTarget', () => {
   it('没有弹窗：返回 null', () => {
     mount(tweet(gifVideo('AAA')));
     expect(modalTarget(document, '/alice/status/111')).toBeNull();
+  });
+});
+
+describe('gifPlayerAt / gifsAt（右键菜单兜底）', () => {
+  /** GIF 播放器：X 在播放器上盖了一层 div，右键落在覆盖层上 */
+  const player = (id: string) =>
+    `<div data-testid="videoComponent">${gifVideo(id)}<div class="overlay"><span>GIF</span></div></div>`;
+  const at = (selector: string) => {
+    const el = document.querySelector(selector);
+    if (!el) throw new Error(`no ${selector}`);
+    return el;
+  };
+
+  beforeEach(() => {
+    document.body.innerHTML = '';
+  });
+
+  it('右键落在 GIF 覆盖层上：识别为 GIF 播放器，只存这一个', () => {
+    mount(tweet(player('A1') + player('A2')));
+    const overlay = document.querySelectorAll('.overlay')[1] as Element;
+    expect(gifPlayerAt(overlay)?.getAttribute('src')).toContain('A2');
+    expect(gifsAt(overlay, '/home')).toEqual([
+      { mediaId: 'A2', mp4Url: mp4UrlFor('A2'), author: 'alice', tweetId: '111' },
+    ]);
+  });
+
+  it('普通视频播放器不算 GIF', () => {
+    mount(
+      tweet(
+        '<div data-testid="videoComponent"><video src="blob:https://x.com/1"></video><div class="overlay"></div></div>',
+      ),
+    );
+    expect(gifPlayerAt(at('.overlay'))).toBeNull();
+    expect(gifsAt(at('.overlay'), '/home')).toBeNull();
+  });
+
+  it('右键在推文正文：存这条推文自己的全部 GIF，不含引用推文的', () => {
+    mount(tweet(`<p class="text">hi</p>${player('OUT')}${quote(player('IN'))}`));
+    expect(gifsAt(at('.text'), '/home')?.map((g) => g.mediaId)).toEqual(['OUT']);
+  });
+
+  it('右键在引用卡片里的 GIF：归属取引用卡片里的 status 链接，拿不到时留空', () => {
+    mount(tweet(quote(`<a href="/carol/status/333">x</a>${player('IN')}`)));
+    expect(gifsAt(at('div[role="link"] .overlay'), '/home')).toEqual([
+      { mediaId: 'IN', mp4Url: mp4UrlFor('IN'), author: 'carol', tweetId: '333' },
+    ]);
+    mount(tweet(quote(player('IN2'))));
+    expect(gifsAt(at('div[role="link"] .overlay'), '/home')?.[0]).toMatchObject({
+      mediaId: 'IN2',
+      author: '',
+      tweetId: '',
+    });
+  });
+
+  it('大图弹窗里的 GIF：作者与推文 ID 来自地址栏', () => {
+    mount(`<div role="dialog" aria-modal="true">${player('MMM')}</div>`);
+    expect(gifsAt(at('.overlay'), '/bob/status/222/video/1')).toEqual([
+      { mediaId: 'MMM', mp4Url: mp4UrlFor('MMM'), author: 'bob', tweetId: '222' },
+    ]);
+  });
+
+  it('没有 GIF 的推文、推文外：返回 null', () => {
+    mount(tweet('<p class="text">hi</p>'));
+    expect(gifsAt(at('.text'), '/home')).toBeNull();
+    mount('<nav class="side">menu</nav>');
+    expect(gifsAt(at('.side'), '/home')).toBeNull();
   });
 });
