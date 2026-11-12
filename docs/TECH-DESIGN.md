@@ -98,10 +98,12 @@ src/
   core/settings.ts         默认预设与设置存储（带版本迁移）
   core/filename.ts         文件名模板渲染
   pipeline/run.ts          转换流水线主流程（Worker 内运行）
+  pipeline/demux.ts        取源 + 拆封装：fetch MP4，mp4box 取轨道信息、avcC 与样本
   pipeline/worker.ts       Worker 入口：接任务、转发进度、可取消
   pipeline/timing.ts       帧延迟计算（厘秒，累计取整）
   pipeline/dither.ts       有序抖动（M1-4 新增）
   pipeline/encoders/       编码器注册表与实现
+  ui/button.ts             操作栏「存 GIF」按钮（Shadow DOM）
   entrypoints/background.ts
   entrypoints/x.content.ts
   entrypoints/offscreen/   offscreen 文档
