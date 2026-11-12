@@ -35,13 +35,19 @@ export type EncodeOptions = {
   onProgress: (ratio: number) => void;
 };
 
+export type EncodeResult = {
+  bytes: Uint8Array;
+  /** 实际使用的颜色数：量化会合并相近色，可能少于预设 */
+  colors: number;
+};
+
 export type Encoder = {
   id: EncoderId;
   label: string;
   /** 输出的 MIME 与扩展名，为将来输出 WebP 等格式预留 */
   mime: 'image/gif';
   ext: 'gif';
-  encode: (input: EncodeInput, opts: EncodeOptions) => Promise<Uint8Array>;
+  encode: (input: EncodeInput, opts: EncodeOptions) => Promise<EncodeResult>;
 };
 
 export const ENCODERS: Record<EncoderId, Encoder> = {

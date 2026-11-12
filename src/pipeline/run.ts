@@ -1,7 +1,7 @@
 import type { FinalParams, Job, JobStage } from '../core/types';
 import { decodeFrames } from './decode';
 import { demuxMp4, fetchMp4 } from './demux';
-import type { EncodeInput, FrameRGBA } from './encoders';
+import { ENCODERS, type EncodeInput, type FrameRGBA } from './encoders';
 import { fitSize, planFrames } from './transform';
 
 export type RunResult = { bytes: Uint8Array; params: FinalParams };
@@ -61,17 +61,28 @@ export const runJob = async (
 
   const input: EncodeInput = { width, height, frameCount: plan.size, frames };
 
-  // 编码尚未实现：先把帧跑一遍做核对，报错里带上结果，便于端到端确认解码与变换已跑通
-  let count = 0;
+  // 进度节流：每帧都发会让消息穿过 Worker → offscreen → background → 标签页，前进 1% 以上或完成时才发
+  let reported = 0;
+  const onEncodeProgress = (ratio: number) => {
+    if (ratio < 1 && ratio - reported < 0.01) return;
+    reported = ratio;
+    onProgress('encoding', ratio);
+  };
+
+  const { bytes, colors } = await ENCODERS[job.preset.encoder].encode(input, {
+    colors: job.preset.colors,
+    dither: job.preset.dither,
+    signal,
+    onProgress: onEncodeProgress,
+  });
+
+  // 帧率按 GIF 实际播放时长（各帧延迟之和）算，抽帧后与原视频帧率不同
   let totalCs = 0;
-  for await (const f of input.frames()) {
-    count++;
-    totalCs += f.delayCs;
-  }
-  if (count !== input.frameCount) {
-    throw new Error(`解码帧数不对：期望 ${input.frameCount}，实际 ${count}`);
-  }
-  throw new Error(
-    `编码尚未实现（ROADMAP M1-4）；已解码 ${count} 帧（原 ${video.samples.length} 帧）、延迟总和 ${totalCs}cs、输出 ${width}×${height}`,
-  );
+  for (const cs of plan.values()) totalCs += cs;
+  const fps = totalCs > 0 ? Math.round((plan.size * 1000) / totalCs) / 10 : 0;
+
+  return {
+    bytes,
+    params: { width, height, fps, colors, frameCount: plan.size, bytes: bytes.length },
+  };
 };

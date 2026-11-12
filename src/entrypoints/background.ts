@@ -19,6 +19,8 @@ const OFFSCREEN_PATH = '/offscreen.html';
 export default defineBackground(() => {
   const jobs = new Map<string, JobMeta>();
   const blobByDownloadId = new Map<number, string>();
+  /** 待下载的 blob URL → 文件名，供 onDeterminingFilename 认领自己的下载 */
+  const filenameByBlobUrl = new Map<string, string>();
   let creating: Promise<void> | null = null;
 
   const ensureOffscreen = async () => {
@@ -111,6 +113,8 @@ export default defineBackground(() => {
             await toOffscreen({ target: 'offscreen', type: 'blob:revoke', blobUrl: msg.blobUrl });
             return;
           }
+          // 先登记再下载：onDeterminingFilename 可能早于 download() 返回 downloadId 触发
+          filenameByBlobUrl.set(msg.blobUrl, meta.filename);
           try {
             const downloadId = await browser.downloads.download({
               url: msg.blobUrl,
@@ -120,6 +124,7 @@ export default defineBackground(() => {
             blobByDownloadId.set(downloadId, msg.blobUrl);
             toTab(msg.jobId, { type: 'job:done', jobId: msg.jobId, params: msg.params });
           } catch (err) {
+            filenameByBlobUrl.delete(msg.blobUrl);
             await toOffscreen({ target: 'offscreen', type: 'blob:revoke', blobUrl: msg.blobUrl });
             toTab(msg.jobId, {
               type: 'job:error',
@@ -134,12 +139,27 @@ export default defineBackground(() => {
     })();
   });
 
+  // 其他扩展（如下载管理类扩展）监听了 onDeterminingFilename 时，Chrome 会忽略 download() 传入的
+  // filename，退回 blob URL 的默认名（UUID，实测存到了下载根目录）。所以自己也监听：只给自己发起的下载
+  // 指定文件名，别人的下载调用空 suggest() 不表态；多个扩展都指定时以最后安装的为准
+  browser.downloads.onDeterminingFilename.addListener((item, suggest) => {
+    const filename = filenameByBlobUrl.get(item.url);
+    if (!filename) {
+      suggest();
+      return;
+    }
+    filenameByBlobUrl.delete(item.url);
+    suggest({ filename, conflictAction: 'uniquify' });
+  });
+
   browser.downloads.onChanged.addListener((delta) => {
     const state = delta.state?.current;
     if (state !== 'complete' && state !== 'interrupted') return;
     const blobUrl = blobByDownloadId.get(delta.id);
     if (!blobUrl) return;
     blobByDownloadId.delete(delta.id);
+    // 下载在 onDeterminingFilename 之前就中断时，登记的文件名不会被认领，这里一并清掉
+    filenameByBlobUrl.delete(blobUrl);
     void toOffscreen({ target: 'offscreen', type: 'blob:revoke', blobUrl });
   });
 });
