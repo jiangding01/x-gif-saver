@@ -1,3 +1,5 @@
+![X GIF Saver：把 GIF 存成真正的 .gif 文件，本地转换，不上传](docs/store/promo/small-tile-zh.png)
+
 # X GIF Saver
 
 [English](README.md) | 简体中文
@@ -25,6 +27,15 @@ X 会把上传的 GIF 转成 MP4 播放，网页上没法直接另存为 GIF。�
 | 界面中英双语，跟随浏览器语言                                                               | ✅ 已完成 |
 
 私信（XChat）里没有推文操作栏，不显示按钮。
+
+## 截图
+
+<p>
+  <img src="docs/store/screenshots/1-save-zh.png" alt="点操作栏里的「存 GIF」按钮，一键保存 GIF" width="49%">
+  <img src="docs/store/screenshots/2-menu-zh.png" alt="右键按钮选预设，只对这一次下载生效" width="49%">
+  <img src="docs/store/screenshots/3-presets-zh.png" alt="设置页：内置的原画、均衡、表情包预设" width="49%">
+  <img src="docs/store/screenshots/4-custom-zh.png" alt="新建自定义预设：尺寸、帧率、颜色数、体积上限" width="49%">
+</p>
 
 ## 安装
 
@@ -76,21 +87,25 @@ CI（GitHub Actions）在每个 PR 和 main 上运行 `pnpm install --frozen-loc
 ## 目录
 
 ```
-src/
-  adapters/      站点适配（识别 GIF、作者、推文 ID）
-  core/          类型、消息协议、设置、文件名
-  pipeline/      转换流水线（Worker 内运行）与编码器；__fixtures__/ 为合成测试样本
-  ui/            操作栏按钮、右键预设菜单、兜底进度提示（Shadow DOM）
-  entrypoints/   background / content script / offscreen / 设置页
-  locales/       界面文案：en.json（默认）与 zh_CN.json，键名保持一致
-public/icons/    插件图标（16/32/48/128 PNG + 原稿 icon.svg）
-e2e/             端到端测试（Playwright，样本页面与说明）
-docs/
-  TECH-DESIGN.md 技术方案
-  ROADMAP.md     路线图
-  media/         README 用的演示录屏与截图
-  store/         Chrome 应用商店上架文案、后台填写内容、截图与小宣传图
-PRIVACY.md       隐私政策（商店列表页引用）
+.
+├── src/
+│   ├── adapters/      站点适配（识别 GIF、作者、推文 ID）
+│   ├── core/          类型、消息协议、设置、文件名
+│   ├── pipeline/      转换流水线（Worker 内运行）与编码器；__fixtures__/ 为合成测试样本
+│   ├── ui/            操作栏按钮、右键预设菜单、兜底进度提示（Shadow DOM）
+│   ├── entrypoints/   background / content script / offscreen / 设置页
+│   ├── locales/       界面文案：en.json（默认）与 zh_CN.json，键名保持一致
+│   ├── testing/       单测辅助（读 en.json 的 #i18n）
+│   └── types/         第三方库的类型声明（gifenc）
+├── public/icons/      插件图标（16/32/48/128 PNG + 原稿 icon.svg）
+├── e2e/               端到端测试（Playwright，样本页面与说明）
+├── scripts/           发版工作流用的 CHANGELOG 段落提取、商店图片导出
+├── docs/
+│   ├── TECH-DESIGN.md 技术方案
+│   ├── ROADMAP.md     路线图
+│   ├── media/         README 用的演示录屏与安装截图
+│   └── store/         Chrome 应用商店上架文案、后台填写内容、截图与小宣传图
+└── PRIVACY.md         隐私政策（商店列表页引用）
 ```
 
 ## 文档
