@@ -49,7 +49,8 @@ export type Job = {
   filename: string;
 };
 
-export type JobStage = 'queued' | 'fetching' | 'decoding' | 'encoding' | 'saving';
+/** shrinking：超出目标体积后的降级重编码（M2-4） */
+export type JobStage = 'queued' | 'fetching' | 'decoding' | 'encoding' | 'shrinking' | 'saving';
 
 /** 实际落盘时使用的参数（目标体积降级后可能与预设不同） */
 export type FinalParams = {
@@ -59,4 +60,6 @@ export type FinalParams = {
   colors: number;
   frameCount: number;
   bytes: number;
+  /** 预设设了目标体积时：上限、最终是否达标、是否降级过（M2-4） */
+  target?: { limit: number; met: boolean; degraded: boolean };
 };
