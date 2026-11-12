@@ -1,29 +1,51 @@
 # X GIF Saver
 
-一键把 X（Twitter）上的 GIF 保存成真正的 `.gif` 文件，方便当表情包用。
+English | [简体中文](README.zh-CN.md)
 
-X 会把上传的 GIF 转成 MP4 播放，网页上没法直接另存为 GIF。这个 Chrome 插件在推文操作栏加一个「存 GIF」按钮，点一下就在本地把 MP4 转回 GIF 并下载，不经过任何服务器。
+Save GIFs from X (Twitter) as real `.gif` files, ready to use as reaction GIFs.
 
-> 当前状态：**v0.2.0**（未上架 Chrome 应用商店，按下方步骤以开发者模式加载）。GIF 默认存到下载目录的 `X-GIF/推文ID_作者.gif`；在设置页可以管理转换预设（尺寸、帧率、颜色数、抖动、体积上限），也可以改文件夹和文件名；右键按钮可临时换预设，浏览器右键菜单可兜底保存。后续计划见 [路线图](docs/ROADMAP.md)。
+X turns uploaded GIFs into MP4 videos, so there is no "Save as GIF" on the web. This Chrome extension adds a Save GIF button to the tweet action bar. One click converts the MP4 back into a GIF right in your browser and downloads it. Nothing is sent to any server.
 
-## 功能
+![Demo: click the Save GIF button and the GIF lands in the X-GIF folder of your downloads](docs/media/demo.gif)
 
-| 功能                                                                                       | 状态      |
-| ------------------------------------------------------------------------------------------ | --------- |
-| 时间线、详情页、大图弹窗中，推文自己带 GIF 时在操作栏显示按钮；引用推文里的 GIF 不会被误下 | ✅ 已完成 |
-| 本地转换：WebCodecs 精确逐帧解码，全局调色板 + 有序抖动 + 帧间差分，帧时长与原视频一致     | ✅ 已完成 |
-| 转换进度、取消、失败重试，防重复点击                                                       | ✅ 已完成 |
-| 右键按钮弹出预设菜单，临时换一个预设下载，不改默认                                         | ✅ 已完成 |
-| 预设：原画 / 均衡 / 表情包，可自定义尺寸、帧率、颜色数、体积上限（设置页）                 | ✅ 已完成 |
-| 目标体积上限：超出时自动降低颜色、帧率、尺寸重新转换，压不下来会明确提示                   | ✅ 已完成 |
-| 文件名模板与保存文件夹：可用推文 ID、作者、日期，文件夹可按作者分，输入时实时显示示例      | ✅ 已完成 |
-| 浏览器右键菜单「保存为 GIF」（操作栏按钮失效时兜底）                                       | ✅ 已完成 |
+> Status: **v0.2.0**, not on the Chrome Web Store yet; load it by following [Install](#install). The extension UI is currently in Simplified Chinese only; English UI is in progress. GIFs are saved to `X-GIF/<tweetId>_<author>.gif` in your downloads folder by default. The options page lets you manage conversion presets (size, frame rate, colors, dithering, size limit) and change the folder and file name. Right-click the button to use a different preset once; the browser's context menu works as a fallback. See the [roadmap](docs/ROADMAP.md) (Chinese) for what's next.
 
-私信（XChat）里没有推文操作栏，不显示按钮。
+## Features
 
-## 安装（开发版）
+| Feature                                                                                                                                                                          | Status  |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------- |
+| Button in the action bar on the timeline, tweet pages and the media viewer, shown only when the tweet itself has a GIF; GIFs inside quoted tweets are never picked up by mistake | ✅ Done |
+| Local conversion: frame-accurate WebCodecs decoding, global palette + ordered dithering + inter-frame diffing, frame timing matches the source                                   | ✅ Done |
+| Progress, cancel, retry on failure, double-click protection                                                                                                                      | ✅ Done |
+| Right-click the button for a preset menu: use another preset once without changing the default                                                                                   | ✅ Done |
+| Presets: Original / Balanced / Sticker, plus custom size, frame rate, colors and size limit (options page)                                                                       | ✅ Done |
+| Size limit: if the GIF is too large, it is re-encoded with fewer colors, a lower frame rate and a smaller size; you are told if the limit still can't be met                     | ✅ Done |
+| File name template and folder: tweet ID, author and date variables, per-author folders, live preview while typing                                                                | ✅ Done |
+| "Save as GIF" in the browser's context menu (fallback when the action bar button is missing)                                                                                     | ✅ Done |
 
-需要 Node.js 22+（WXT 0.21 的要求，CI 使用 Node 24）和 pnpm 12。项目根目录的 `.npmrc` 已固定使用 npm 官方源，不受全局源配置影响。
+Direct messages (XChat) have no tweet action bar, so the button doesn't appear there.
+
+## Install
+
+### From a release (recommended)
+
+Download the latest `x-gif-saver-vX.Y.Z.zip` from [Releases](https://github.com/jiangding01/x-gif-saver/releases/latest) and unzip it somewhere permanent (don't move or delete the folder afterwards). Then:
+
+1. Open `chrome://extensions` in Chrome.
+2. Turn on **Developer mode** in the top-right corner.
+3. Click **Load unpacked**.
+4. Pick the unzipped folder (the one that directly contains `manifest.json`).
+5. Click **Select**.
+
+![Loading the unzipped folder in chrome://extensions; numbers match the steps above (Chinese UI)](docs/media/install-zh.png)
+
+Refresh any open X tabs and the button appears in the tweet action bar. Pin X GIF Saver from the puzzle-piece menu and click its icon to open the options page: tune size, frame rate and colors under presets, and change the folder and file name under save location, with a live example path below.
+
+**Updating**: download and unzip the new zip, replace the contents of the existing folder with the new files (keep the folder in the same place so your settings are kept), click the reload button on the extension's card in `chrome://extensions`, then refresh open X tabs.
+
+### Build from source
+
+Requires Node.js 22+ (needed by WXT 0.21; CI uses Node 24) and pnpm 12. The `.npmrc` in the project root pins the official npm registry, regardless of your global registry settings.
 
 ```bash
 pnpm install
@@ -33,51 +55,52 @@ pnpm install
 pnpm build
 ```
 
-打开 `chrome://extensions`，开启「开发者模式」，点「加载已解压的扩展程序」，选择 `.output/chrome-mv3` 目录。
+Then follow steps 1 to 5 above and load the `.output/chrome-mv3` folder.
 
-设置页：点工具栏上的 X GIF Saver 图标即可打开（可在拼图菜单里把它固定到工具栏）。在「转换预设」里调尺寸、帧率和颜色；在「保存位置」里改文件夹和文件名，下方会实时显示示例路径。
+## Development
 
-## 开发
+| Command                       | What it does                                                  |
+| ----------------------------- | ------------------------------------------------------------- |
+| `pnpm dev`                    | Dev mode: opens Chrome with the extension and hot reload      |
+| `pnpm build`                  | Production build to `.output/chrome-mv3`                      |
+| `pnpm zip`                    | Package a zip                                                 |
+| `pnpm compile`                | Generate WXT types and type-check with TypeScript             |
+| `pnpm test`                   | Unit tests (Vitest)                                           |
+| `pnpm test:e2e`               | Build, then run end-to-end tests (Playwright, see e2e/README) |
+| `pnpm lint` / `pnpm lint:fix` | Biome check / auto-fix                                        |
+| `pnpm check`                  | Type check + lint + tests; must pass before committing        |
 
-| 命令                          | 作用                                            |
-| ----------------------------- | ----------------------------------------------- |
-| `pnpm dev`                    | 启动开发模式，自动打开带插件的 Chrome 并热更新  |
-| `pnpm build`                  | 生产构建到 `.output/chrome-mv3`                 |
-| `pnpm zip`                    | 打包 zip                                        |
-| `pnpm compile`                | 生成 WXT 类型并做 TypeScript 类型检查           |
-| `pnpm test`                   | 单元测试（Vitest）                              |
-| `pnpm test:e2e`               | 构建后跑端到端测试（Playwright，见 e2e/README） |
-| `pnpm lint` / `pnpm lint:fix` | Biome 检查 / 自动修复                           |
-| `pnpm check`                  | 类型检查 + lint + 测试，提交前必须通过          |
+CI (GitHub Actions) runs `pnpm install --frozen-lockfile`, `pnpm check` and `pnpm build` on every PR and on main, plus a separate end-to-end job (before your first local run, do `pnpm exec playwright install chromium`). Pushing a `vX.Y.Z` tag makes the release workflow package `x-gif-saver-vX.Y.Z.zip` and create a draft release.
 
-CI（GitHub Actions）在每个 PR 和 main 上运行 `pnpm install --frozen-lockfile`、`pnpm check`、`pnpm build`，并另起一个 job 跑端到端测试（首次在本地运行前先 `pnpm exec playwright install chromium`）。推送 `vX.Y.Z` 标签后，Release 工作流会自动打包 `x-gif-saver-vX.Y.Z.zip` 并创建草稿 Release。
-
-## 目录
+## Project layout
 
 ```
 src/
-  adapters/      站点适配（识别 GIF、作者、推文 ID）
-  core/          类型、消息协议、设置、文件名
-  pipeline/      转换流水线（Worker 内运行）与编码器；__fixtures__/ 为合成测试样本
-  ui/            操作栏按钮、右键预设菜单、兜底进度提示（Shadow DOM）
-  entrypoints/   background / content script / offscreen / 设置页
-public/icons/    插件图标（16/32/48/128 PNG + 原稿 icon.svg）
-e2e/             端到端测试（Playwright，样本页面与说明）
+  adapters/      Site adapters (find GIFs, author, tweet ID)
+  core/          Types, message protocol, settings, file names
+  pipeline/      Conversion pipeline (runs in a Worker) and encoders; __fixtures__/ holds synthetic test samples
+  ui/            Action bar button, right-click preset menu, fallback progress toast (Shadow DOM)
+  entrypoints/   background / content script / offscreen / options page
+public/icons/    Extension icons (16/32/48/128 PNG + source icon.svg)
+e2e/             End-to-end tests (Playwright, sample page and notes)
 docs/
-  TECH-DESIGN.md 技术方案
-  ROADMAP.md     路线图
+  TECH-DESIGN.md Technical design
+  ROADMAP.md     Roadmap
+  media/         Demo recording and screenshots used in the README
 ```
 
-## 文档
+## Docs
 
-- [技术方案](docs/TECH-DESIGN.md)：架构、流水线、设置结构、权限、风险、决策记录
-- [路线图](docs/ROADMAP.md)：里程碑与任务完成标准
+Design docs and the changelog are written in Chinese.
+
+- [Technical design](docs/TECH-DESIGN.md): architecture, pipeline, settings schema, permissions, risks, decision log
+- [Roadmap](docs/ROADMAP.md): milestones and acceptance criteria
 - [CHANGELOG](CHANGELOG.md)
 
-## 隐私
+## Privacy
 
-只申请 `contextMenus`、`downloads`、`offscreen`、`storage` 权限，以及 `x.com`、`twitter.com`、`video.twimg.com` 的访问权限。所有转换都在浏览器本地完成，不上传任何数据。
+The extension only asks for the `contextMenus`, `downloads`, `offscreen` and `storage` permissions, plus access to `x.com`, `twitter.com` and `video.twimg.com`. All conversion happens locally in your browser; no data is uploaded.
 
-## 许可证
+## License
 
-[MIT](LICENSE)。若将来接入 gifski 高质量编码器（AGPL-3.0，见路线图 M3），分发时需另行评估许可证兼容性。
+[MIT](LICENSE). If the gifski high-quality encoder (AGPL-3.0, see roadmap M3) is added in the future, license compatibility will need to be reviewed before distribution.

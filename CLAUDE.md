@@ -27,9 +27,9 @@ Chrome MV3 插件：把 X 上的 GIF（实为 MP4）在本地转成 .gif 下载�
 ## 流程
 
 - 每个 ROADMAP 任务：从 main 切 `feat/` 分支 → 先出技术方案并评审 → 开发 → `pnpm check` + `pnpm build`（涉及按钮、菜单、消息、下载时加 `pnpm test:e2e`）+ 按「完成标准」手动验收 → 代码审查修到无阻塞问题 → 勾选 ROADMAP、更新 CHANGELOG、方案变动追加到 TECH-DESIGN「决策记录」→ 提交推送、开 PR → 问用户是否合并（用户手动合并，合并后切回 main 拉取并清理本地分支）
-- 每次改代码后核对文档与代码一致：`package.json` 版本（manifest 由它生成）、README（当前状态、功能表、目录、命令）、CHANGELOG、TECH-DESIGN（目录、关键事实、风险、决策记录）、ROADMAP；版本号：新增功能或修复用户可感知的问题时在该 PR 内升 patch（0.0.x），CHANGELOG 把对应条目从「Unreleased」移到新版本段落；纯文档/CI/重构不升；里程碑结束按 ROADMAP 升 minor（M1 → 0.1.0）
+- 每次改代码后核对文档与代码一致：`package.json` 版本（manifest 由它生成）、README（英文 `README.md` 与中文 `README.zh-CN.md` 两份同步改：当前状态、功能表、安装、目录、命令）、CHANGELOG、TECH-DESIGN（目录、关键事实、风险、决策记录）、ROADMAP；版本号：新增功能或修复用户可感知的问题时在该 PR 内升 patch（0.0.x），CHANGELOG 把对应条目从「Unreleased」移到新版本段落；纯文档/CI/重构不升；里程碑结束按 ROADMAP 升 minor（M1 → 0.1.0）
 - commit message 用简体中文多行：做了什么 / 如何验证 / 如何回滚
-- 仓库公开：推送前确认没有本机路径、内网地址、密钥
+- 仓库公开：推送前确认没有本机路径、内网地址、密钥；README 用的截图和录屏（`docs/media/`）入库前遮住本机用户名、电脑名，裁掉无关的第三方内容，并压缩体积
 
 ## 坑与注意事项
 
