@@ -34,7 +34,7 @@ pnpm build
 
 打开 `chrome://extensions`，开启「开发者模式」，点「加载已解压的扩展程序」，选择 `.output/chrome-mv3` 目录。
 
-设置页：在工具栏的扩展图标上右键选「选项」，或在 `chrome://extensions` 里点 X GIF Saver 的「详细信息」→「扩展程序选项」。
+设置页：点工具栏上的 X GIF Saver 图标即可打开（可在拼图菜单里把它固定到工具栏）。
 
 ## 开发
 
@@ -59,6 +59,7 @@ src/
   pipeline/      转换流水线（Worker 内运行）与编码器；__fixtures__/ 为合成测试样本
   ui/            操作栏按钮（Shadow DOM）
   entrypoints/   background / content script / offscreen / 设置页
+public/icons/    插件图标（16/32/48/128 PNG + 原稿 icon.svg）
 docs/
   TECH-DESIGN.md 技术方案
   ROADMAP.md     路线图

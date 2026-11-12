@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <title>X GIF Saver</title>
+  <!-- Round-corner background; everything outside is fully transparent. -->
+  <rect x="0" y="0" width="1024" height="1024" rx="198" fill="#000000" />
+  <!-- Independent XGIF lettering at ~76% of canvas width, centered with comfortable side margins; not X Corp. logo. -->
+  <g transform="translate(522 404) scale(1.43 1.59) translate(-512 -459)" fill="#FFFFFF"><path d="M1020 762 1538 0H1137L788 510L442 0H39L557 762L59 1493H461L788 1012L1114 1493H1518Z" transform="translate(233.539 541) scale(0.109375 -0.109375)"/><path d="M1530 111Q1386 41 1231.0 6.0Q1076 -29 911 -29Q538 -29 320.0 179.5Q102 388 102 745Q102 1106 324.0 1313.0Q546 1520 932 1520Q1081 1520 1217.5 1492.0Q1354 1464 1475 1409V1100Q1350 1171 1226.5 1206.0Q1103 1241 979 1241Q749 1241 624.5 1112.5Q500 984 500 745Q500 508 620.0 379.0Q740 250 961 250Q1021 250 1072.5 257.5Q1124 265 1165 281V571H930V829H1530Z" transform="translate(394.242 541) scale(0.109375 -0.109375)"/><path d="M188 1493H573V0H188Z" transform="translate(566.102 541) scale(0.109375 -0.109375)"/><path d="M188 1493H1227V1202H573V924H1188V633H573V0H188Z" transform="translate(637.445 541) scale(0.109375 -0.109375)"/></g>
+  <!-- White download arrow and tray. -->
+  <g transform="translate(512 755) scale(1.25) translate(-512 -735)">
+  <path d="M489 641 Q489 626 504 626 L520 626 Q535 626 535 641 L535 736 L557 713 Q569 702 581 713 Q592 725 581 737 L529 790 Q512 808 495 790 L443 737 Q432 725 443 713 Q455 702 467 713 L489 736 Z" fill="#FFFFFF"/>
+  <path d="M395 761 L395 807 Q395 841 429 841 L595 841 Q629 841 629 807 L629 761" fill="none" stroke="#FFFFFF" stroke-width="36" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

@@ -236,6 +236,11 @@ export default defineBackground(() => {
     suggest({ filename, conflictAction: 'uniquify' });
   });
 
+  // 工具栏按钮：打开设置页；已打开时 Chrome 会切到那个标签页，不会重复开
+  browser.action.onClicked.addListener(() => {
+    void browser.runtime.openOptionsPage();
+  });
+
   browser.downloads.onChanged.addListener((delta) => {
     const state = delta.state?.current;
     if (state !== 'complete' && state !== 'interrupted') return;

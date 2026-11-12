@@ -82,28 +82,26 @@ input {
 .brand {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   color: var(--muted);
   font-size: 13px;
   font-weight: 700;
   letter-spacing: 0.01em;
 }
 
+/* 图标是黑底圆角方块，圆角比例与原稿一致（198 / 1024） */
 .mark {
-  width: 22px;
-  height: 22px;
-  color: var(--accent);
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 2;
-  stroke-linecap: round;
-  stroke-linejoin: round;
+  display: block;
+  width: 28px;
+  height: 28px;
+  border-radius: 19.3%;
 }
 
-.mark text {
-  fill: currentColor;
-  stroke: none;
-  font: 700 6.6px var(--font);
+/* 深色模式页面也是纯黑，加一圈发丝线把图标轮廓托出来 */
+@media (prefers-color-scheme: dark) {
+  .mark {
+    box-shadow: 0 0 0 1px var(--line);
+  }
 }
 
 h1 {
