@@ -87,6 +87,8 @@ docs/
   TECH-DESIGN.md 技术方案
   ROADMAP.md     路线图
   media/         README 用的演示录屏与截图
+  store/         Chrome 应用商店上架文案与后台填写内容
+PRIVACY.md       隐私政策（商店列表页引用）
 ```
 
 ## 文档
@@ -97,7 +99,7 @@ docs/
 
 ## 隐私
 
-只申请 `contextMenus`、`downloads`、`offscreen`、`storage` 权限，以及 `x.com`、`twitter.com`、`video.twimg.com` 的访问权限。所有转换都在浏览器本地完成，不上传任何数据。
+只申请 `contextMenus`、`downloads`、`offscreen`、`storage` 权限，以及 `x.com`、`twitter.com`、`video.twimg.com` 的访问权限。所有转换都在浏览器本地完成，不上传任何数据。详见[隐私政策](PRIVACY.md#隐私政策)。
 
 ## 许可证
 

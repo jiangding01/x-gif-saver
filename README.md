@@ -87,6 +87,8 @@ docs/
   TECH-DESIGN.md Technical design
   ROADMAP.md     Roadmap
   media/         Demo recording and screenshots used in the README
+  store/         Chrome Web Store listing copy and dashboard answers
+PRIVACY.md       Privacy policy (linked from the store listing)
 ```
 
 ## Docs
@@ -99,7 +101,7 @@ Design docs and the changelog are written in Chinese.
 
 ## Privacy
 
-The extension only asks for the `contextMenus`, `downloads`, `offscreen` and `storage` permissions, plus access to `x.com`, `twitter.com` and `video.twimg.com`. All conversion happens locally in your browser; no data is uploaded.
+The extension only asks for the `contextMenus`, `downloads`, `offscreen` and `storage` permissions, plus access to `x.com`, `twitter.com` and `video.twimg.com`. All conversion happens locally in your browser; no data is uploaded. See the [privacy policy](PRIVACY.md) for details.
 
 ## License
 
