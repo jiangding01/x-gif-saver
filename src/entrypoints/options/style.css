@@ -702,6 +702,66 @@ input[aria-invalid="true"] {
   gap: 2px;
 }
 
+/* ---------- 文件名 ---------- */
+
+.section + .section {
+  margin-top: 56px;
+}
+
+.filename {
+  display: grid;
+  gap: 24px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+
+.affix-input {
+  position: relative;
+}
+
+.affix-input input {
+  padding-right: 52px;
+}
+
+.chips-label {
+  align-self: center;
+  margin-right: 2px;
+  color: var(--muted);
+  font-size: 12.5px;
+}
+
+/* 示例路径：目录弱、文件名强，等宽数字让推文 ID 不跳动 */
+.path-preview {
+  display: grid;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: var(--radius-m);
+  background: var(--surface);
+}
+
+.path-label {
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 700;
+}
+
+.path {
+  margin: 0;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.path-dir {
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.path-file {
+  font-weight: 700;
+}
+
 /* ---------- 页脚与提示 ---------- */
 
 .colophon {

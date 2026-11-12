@@ -14,6 +14,7 @@ import {
 import { resolvePreset } from '../../core/settings';
 import type { Preset } from '../../core/types';
 import { CreatePresetDialog } from './CreatePresetDialog';
+import { FilenameSection } from './FilenameSection';
 import { PresetEditor } from './PresetEditor';
 import type { fieldsOf } from './PresetForm';
 import { PresetRow } from './PresetRow';
@@ -220,6 +221,8 @@ export const App = () => {
           })}
         </div>
       </section>
+
+      <FilenameSection settings={settings} onSaved={onSaved} onError={onError} />
 
       <CreatePresetDialog
         base={creating ? current : null}

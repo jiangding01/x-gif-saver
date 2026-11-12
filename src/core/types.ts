@@ -25,9 +25,9 @@ export type Preset = {
 export type Settings = {
   defaultPresetId: string;
   presets: Preset[];
-  /** 可用变量：{author} {tweetId} {date}；同一推文多个 GIF 时自动追加 _1、_2 */
+  /** 可用变量：{tweetId} {author} {date}（下载当天）；同一推文多个 GIF 时自动追加 _1、_2 */
   filenameTemplate: string;
-  /** 相对 Chrome 默认下载目录的子目录，空串 = 直接放在下载目录 */
+  /** 相对 Chrome 默认下载目录的文件夹，可多层（/ 分隔）、可用与模板相同的变量；空串 = 直接放在下载目录 */
   subfolder: string;
 };
 
