@@ -155,6 +155,9 @@ export default defineBackground(() => {
         case 'job:cancel':
           await cancelRequest(msg.requestId);
           return;
+        case 'options:open':
+          await browser.runtime.openOptionsPage();
+          return;
         case 'job:progress': {
           const meta = jobs.get(msg.jobId);
           if (!meta) return;

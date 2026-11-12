@@ -56,7 +56,7 @@ describe('viewOf：单个 GIF', () => {
   const task = createTask(R, [source('A')]);
 
   it('没有任务 → 空闲；刚点击 → 排队（不等 background 回应）', () => {
-    expect(viewOf(null)).toMatchObject({ kind: 'idle', label: '保存为 GIF' });
+    expect(viewOf(null)).toMatchObject({ kind: 'idle', label: '保存为 GIF，右键可选预设' });
     expect(viewOf(task)).toMatchObject({ kind: 'queued', label: '排队中，点击取消' });
   });
 
@@ -121,6 +121,28 @@ describe('viewOf：同一推文多个 GIF', () => {
     const failed = apply(task, done('A'), error('无法启动转换'));
     expect(failedSources(failed).map((s) => s.mediaId)).toEqual(['B']);
     expect(viewOf(failed).label).toContain('无法启动转换');
+  });
+});
+
+describe('右键菜单选的预设', () => {
+  const picked = { id: 'sticker', name: '表情包' };
+
+  it('完成提示带上预设名；默认预设不带', () => {
+    const task = createTask(R, [source('A')], picked);
+    expect(viewOf(apply(task, done('A')))).toMatchObject({
+      label: '已保存（表情包）1.7MB · 480×480 · 20fps',
+    });
+    const two = createTask(R, [source('A'), source('B')], picked);
+    expect(viewOf(apply(two, done('A'), done('B'))).label).toBe(
+      '已保存（表情包）2 个 GIF · 共 3.4MB',
+    );
+    expect(createTask(R, [source('A')])).not.toHaveProperty('preset');
+  });
+
+  it('任务记住预设，失败重试可以沿用', () => {
+    const task = apply(createTask(R, [source('A')], picked), error('网络错误', 'A'));
+    expect(task.preset).toEqual(picked);
+    expect(failedSources(task).map((s) => s.mediaId)).toEqual(['A']);
   });
 });
 

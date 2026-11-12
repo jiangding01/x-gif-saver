@@ -14,9 +14,14 @@ export type JobState = {
   params?: FinalParams;
 };
 
+/** 右键菜单选的非默认预设；未设置表示用默认预设 */
+export type PickedPreset = { id: string; name: string };
+
 export type Task = {
   requestId: string;
   sources: GifSource[];
+  /** 本次用的非默认预设：完成提示带上它的名字，失败重试也沿用它 */
+  preset?: PickedPreset;
   /** mediaId → 状态 */
   jobs: Map<string, JobState>;
 };
@@ -31,7 +36,7 @@ export type ButtonView = {
   label: string;
 };
 
-export const IDLE_VIEW: ButtonView = { kind: 'idle', ratio: 0, label: '保存为 GIF' };
+export const IDLE_VIEW: ButtonView = { kind: 'idle', ratio: 0, label: '保存为 GIF，右键可选预设' };
 
 /** 下载阶段在总进度里占的比例；解码与编码由编码器统一上报（两遍遍历，0–1 单调） */
 const FETCH_SHARE = 0.1;
@@ -51,9 +56,14 @@ export const overallRatio = (stage: JobStage, ratio: number): number => {
   }
 };
 
-export const createTask = (requestId: string, sources: GifSource[]): Task => ({
+export const createTask = (
+  requestId: string,
+  sources: GifSource[],
+  preset?: PickedPreset,
+): Task => ({
   requestId,
   sources,
+  ...(preset ? { preset } : {}),
   jobs: new Map(sources.map((s) => [s.mediaId, { phase: 'queued', ratio: 0 }])),
 });
 
@@ -113,21 +123,22 @@ export const formatBytes = (bytes: number): string =>
     ? `${Math.max(1, Math.round(bytes / 1024))}KB`
     : `${(bytes / 1024 / 1024).toFixed(1)}MB`;
 
-const doneLabel = (jobs: JobState[]): string => {
+const doneLabel = (jobs: JobState[], preset?: PickedPreset): string => {
   const params = jobs.map((j) => j.params).filter((p): p is FinalParams => p !== undefined);
   const total = formatBytes(params.reduce((sum, p) => sum + p.bytes, 0));
+  const saved = preset ? `已保存（${preset.name}）` : '已保存 ';
   const [only] = params;
   if (params.length === 1 && only) {
-    return `已保存 ${total} · ${only.width}×${only.height} · ${only.fps}fps`;
+    return `${saved}${total} · ${only.width}×${only.height} · ${only.fps}fps`;
   }
-  return `已保存 ${jobs.length} 个 GIF · 共 ${total}`;
+  return `${saved}${jobs.length} 个 GIF · 共 ${total}`;
 };
 
 export const viewOf = (task: Task | null): ButtonView => {
   if (!task) return IDLE_VIEW;
   const jobs = [...task.jobs.values()];
   if (jobs.every((j) => j.phase === 'done'))
-    return { kind: 'done', ratio: 1, label: doneLabel(jobs) };
+    return { kind: 'done', ratio: 1, label: doneLabel(jobs, task.preset) };
   if (isSettled(task)) {
     const failed = jobs.filter((j) => j.phase === 'error');
     const reason = failed[0]?.message ?? '未知错误';

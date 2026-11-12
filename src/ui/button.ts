@@ -7,6 +7,7 @@ import {
   createShadowRootUi,
   type ShadowRootContentScriptUi,
 } from '#imports';
+import { createPresetMenu, MENU_STYLE, type PresetMenu } from './presetMenu';
 import { type ButtonKind, type ButtonView, IDLE_VIEW } from './state';
 
 const BLUE = 'rgb(29, 155, 240)';
@@ -20,22 +21,23 @@ const DEFAULT_COLOR = 'rgb(113, 118, 123)';
 const RING_R = 9;
 const RING_C = 2 * Math.PI * RING_R;
 
+// 按钮样式只作用于 .save：同一 shadow 里还有预设菜单的按钮，不能用标签选择器。
 // :host 要写在 shadow 样式表里并加 !important：WXT 给宿主设了 all: initial !important，
 // 宿主上的内联样式会被它覆盖。宿主是操作栏（flex space-between）的子项：不参与伸缩、
 // 不挤占原生按钮，也不被拉伸到操作栏高度（弹窗、详情页操作栏约 48px，拉伸后按钮会贴顶）
-const STYLE = `
+export const BUTTON_STYLE = `
   :host { display: flex !important; flex: 0 0 auto !important; align-self: center !important; }
-  button {
+  .save {
     display: flex; align-items: center; justify-content: center;
     width: calc(var(--icon) + 16px); height: calc(var(--icon) + 16px);
     margin: 0; padding: 0; border: 0; border-radius: 9999px;
     background: transparent; color: var(--fg); cursor: pointer;
     transition: background-color 0.2s, color 0.2s;
   }
-  button:hover, button:focus-visible { color: ${BLUE}; background: rgba(29, 155, 240, 0.1); }
-  button:focus-visible { outline: 2px solid ${BLUE}; outline-offset: -2px; }
-  button[data-kind="done"] { color: ${GREEN}; }
-  button[data-kind="error"], button[data-kind="error"]:hover, button[data-kind="error"]:focus-visible {
+  .save:hover, .save:focus-visible { color: ${BLUE}; background: rgba(29, 155, 240, 0.1); }
+  .save:focus-visible { outline: 2px solid ${BLUE}; outline-offset: -2px; }
+  .save[data-kind="done"] { color: ${GREEN}; }
+  .save[data-kind="error"], .save[data-kind="error"]:hover, .save[data-kind="error"]:focus-visible {
     color: ${RED}; background: rgba(244, 33, 46, 0.1);
   }
   svg { width: var(--icon); height: var(--icon); fill: none; stroke: currentColor; overflow: visible; }
@@ -46,10 +48,10 @@ const STYLE = `
   @keyframes spin { to { transform: rotate(360deg); } }
   /* 转换中/排队中：悬停或键盘聚焦时中间出现 ✕，提示「再点一次是取消」 */
   .cancel { opacity: 0; transition: opacity 0.15s; }
-  button:hover .cancel, button:focus-visible .cancel { opacity: 1; }
+  .save:hover .cancel, .save:focus-visible .cancel { opacity: 1; }
   @media (prefers-reduced-motion: reduce) {
     .spin { animation: none; }
-    .arc, .cancel, button { transition: none; }
+    .arc, .cancel, .save { transition: none; }
   }
   .sr-only {
     position: absolute; width: 1px; height: 1px; overflow: hidden;
@@ -100,7 +102,7 @@ const nativeIconLook = (actionBar: Element): { size: number; color: string } => 
   };
 };
 
-type ButtonParts = { button: HTMLButtonElement; live: HTMLSpanElement };
+type ButtonParts = { button: HTMLButtonElement; live: HTMLSpanElement; menu: PresetMenu };
 export type SaveButton = ShadowRootContentScriptUi<ButtonParts>;
 
 /** 按视图刷新按钮；完成、失败时通过隐藏的 aria-live 区域播报给读屏 */
@@ -137,11 +139,22 @@ export const renderButton = (ui: SaveButton, view: ButtonView): void => {
   button.setAttribute('aria-busy', String(view.kind === 'queued' || view.kind === 'progress'));
 };
 
+/**
+ * 右键 / ContextMenu 键 / Shift+F10 的回调：返回 true 表示由我们处理（打开预设菜单），
+ * 返回 false 时不拦截，浏览器原生菜单照常出现（例如转换中）
+ */
+export type ContextMenuHandler = (
+  button: HTMLButtonElement,
+  menu: PresetMenu,
+  viaKeyboard: boolean,
+) => boolean;
+
 /** 在操作栏末尾挂一个按钮。点击事件不冒泡，避免触发 X 在推文卡片上的「进入详情页」 */
 export const mountSaveButton = async (
   ctx: ContentScriptContext,
   actionBar: Element,
   onClick: () => void,
+  onContextMenu: ContextMenuHandler,
   initial: ButtonView = IDLE_VIEW,
 ): Promise<SaveButton> => {
   const ui = await createShadowRootUi(ctx, {
@@ -153,9 +166,10 @@ export const mountSaveButton = async (
     isolateEvents: true,
     onMount(container): ButtonParts {
       const style = document.createElement('style');
-      style.textContent = STYLE;
+      style.textContent = BUTTON_STYLE + MENU_STYLE;
       const button = document.createElement('button');
       button.type = 'button';
+      button.className = 'save';
       const look = nativeIconLook(actionBar);
       button.style.setProperty('--icon', `${look.size}px`);
       button.style.setProperty('--fg', look.color);
@@ -168,7 +182,20 @@ export const mountSaveButton = async (
       live.className = 'sr-only';
       live.setAttribute('aria-live', 'polite');
       container.append(style, button, live);
-      return { button, live };
+      const menu = createPresetMenu(container);
+      const requestMenu = (e: Event) => {
+        // 键盘触发的 contextmenu 没有指针类型（pointerType 为空）
+        const viaKeyboard = !(e instanceof PointerEvent) || e.pointerType === '';
+        if (!onContextMenu(button, menu, viaKeyboard)) return;
+        e.preventDefault();
+        e.stopPropagation();
+      };
+      button.addEventListener('contextmenu', requestMenu);
+      // macOS 上 Shift+F10 不会触发 contextmenu 事件，自己接住；Windows 两者都会来，菜单打开是幂等的
+      button.addEventListener('keydown', (e) => {
+        if (e.key === 'ContextMenu' || (e.shiftKey && e.key === 'F10')) requestMenu(e);
+      });
+      return { button, live, menu };
     },
   });
   ui.mount();

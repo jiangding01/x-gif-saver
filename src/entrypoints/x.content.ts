@@ -12,14 +12,22 @@
 import { browser, type ContentScriptContext, defineContentScript } from '#imports';
 import { type GifTarget, modalTarget, TWEET_SELECTOR, tweetTarget } from '../adapters/x';
 import { isToContent, type ToBackground, type ToContent } from '../core/messages';
+import { describePreset } from '../core/presets';
+import { resolvePreset, settingsItem } from '../core/settings';
 import type { GifSource } from '../core/types';
-import { mountSaveButton, renderButton, type SaveButton } from '../ui/button';
+import {
+  type ContextMenuHandler,
+  mountSaveButton,
+  renderButton,
+  type SaveButton,
+} from '../ui/button';
 import {
   applyMessage,
   createTask,
   failedSources,
   isRunning,
   isSettled,
+  type PickedPreset,
   type Task,
   viewOf,
 } from '../ui/state';
@@ -113,14 +121,21 @@ export default defineContentScript({
       refresh(tweetId);
     };
 
-    const start = async (tweetId: string, sources: GifSource[]) => {
+    /** @param preset 右键菜单选的非默认预设；不传则由 background 用默认预设 */
+    const start = async (tweetId: string, sources: GifSource[], preset?: PickedPreset) => {
       clearTask(tweetId);
       const requestId = crypto.randomUUID();
-      tasks.set(tweetId, { task: createTask(requestId, sources), lastEventAt: Date.now() });
+      tasks.set(tweetId, { task: createTask(requestId, sources, preset), lastEventAt: Date.now() });
       tweetByRequest.set(requestId, tweetId);
       // 点击后立即显示排队转圈，不等 background 回应
       refresh(tweetId);
-      const ok = await send({ target: 'background', type: 'job:start', requestId, sources });
+      const ok = await send({
+        target: 'background',
+        type: 'job:start',
+        requestId,
+        sources,
+        ...(preset ? { presetId: preset.id } : {}),
+      });
       if (!ok) failLocally(tweetId, '扩展已更新，请刷新页面后重试');
     };
 
@@ -154,10 +169,65 @@ export default defineContentScript({
           cancel(tweetId);
           return;
         case 'error':
-          void start(tweetId, entry ? failedSources(entry.task) : target.sources);
+          // 重试只重跑失败项，沿用上次的预设
+          void start(
+            tweetId,
+            entry ? failedSources(entry.task) : target.sources,
+            entry?.task.preset,
+          );
           return;
       }
     };
+
+    /**
+     * 右键（或 ContextMenu 键）：空闲、完成、失败时弹出预设菜单，选中的预设只用于这一次。
+     * 转换中不拦截，浏览器原生菜单照常出现
+     */
+    const onContextMenu =
+      (container: Element): ContextMenuHandler =>
+      (button, menu, viaKeyboard) => {
+        const target = findTargets().find((t) => t.container === container);
+        if (!target) return false;
+        const tweetId = tweetIdOf(target);
+        const kind = viewOf(tasks.get(tweetId)?.task ?? null).kind;
+        if (kind === 'queued' || kind === 'progress') return false;
+        void settingsItem.getValue().then(
+          (settings) => {
+            const fallback = resolvePreset(settings);
+            menu.open(
+              button,
+              settings.presets.map((p) => ({
+                id: p.id,
+                name: p.name,
+                detail: describePreset(p),
+                isDefault: p.id === fallback.id,
+              })),
+              {
+                onPick: (id) => {
+                  // 选完再识别一次：菜单打开期间状态或 GIF 列表可能已变化
+                  const now = findTargets().find((t) => t.container === container);
+                  if (!now) return;
+                  const entry = tasks.get(tweetId);
+                  const state = viewOf(entry?.task ?? null).kind;
+                  if (state === 'queued' || state === 'progress') return;
+                  lastClickAt.set(tweetId, Date.now());
+                  const preset = settings.presets.find((p) => p.id === id);
+                  const picked = preset && preset.id !== fallback.id ? preset : undefined;
+                  void start(
+                    tweetId,
+                    state === 'error' && entry ? failedSources(entry.task) : now.sources,
+                    picked ? { id: picked.id, name: picked.name } : undefined,
+                  );
+                },
+                onManage: () => void send({ target: 'background', type: 'options:open' }),
+              },
+              viaKeyboard,
+            );
+          },
+          (err) => console.warn('[x-gif-saver] 读取预设失败', err),
+        );
+        return true;
+      };
 
     const onJobMessage = (msg: unknown) => {
       if (!isToContent(msg)) return;
@@ -195,7 +265,13 @@ export default defineContentScript({
     const mount = (target: GifTarget) => {
       const { container, actionBar } = target;
       const tweetId = tweetIdOf(target);
-      const ui = mountSaveButton(ctx, actionBar, () => onClick(container), currentView(tweetId))
+      const ui = mountSaveButton(
+        ctx,
+        actionBar,
+        () => onClick(container),
+        onContextMenu(container),
+        currentView(tweetId),
+      )
         .then((button) => {
           const set = buttonsByTweet.get(tweetId) ?? new Set<SaveButton>();
           set.add(button);
