@@ -1,7 +1,7 @@
 {
   "name": "x-gif-saver",
   "description": "一键把 X（Twitter）上的 GIF 保存为真正的 .gif 文件",
-  "version": "0.0.3",
+  "version": "0.1.0",
   "license": "MIT",
   "private": true,
   "type": "module",
@@ -24,6 +24,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.6",
+    "@types/node": "24.19.2",
     "@types/react": "19.3.0",
     "@types/react-dom": "19.3.0",
     "@wxt-dev/module-react": "1.2.2",

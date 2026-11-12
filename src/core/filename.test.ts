@@ -11,9 +11,9 @@ const src: GifSource = {
 const now = new Date(2026, 10, 11);
 
 describe('renderFilename', () => {
-  it('默认模板 + 子目录', () => {
-    expect(renderFilename('{author}_{tweetId}', 'X-GIF', src, 1, 1, now)).toBe(
-      'X-GIF/jiangding01_2120459074362114107.gif',
+  it('默认模板（与 core/settings.ts 的 DEFAULT_SETTINGS 保持一致）+ 子目录', () => {
+    expect(renderFilename('{tweetId}_{author}', 'X-GIF', src, 1, 1, now)).toBe(
+      'X-GIF/2120459074362114107_jiangding01.gif',
     );
   });
 
