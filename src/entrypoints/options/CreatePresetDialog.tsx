@@ -87,19 +87,22 @@ export const CreatePresetDialog = ({ base, name, all, onCreate, onClose }: Props
               <CloseIcon />
             </button>
           </header>
-          <PresetForm
-            draft={draft}
-            errors={errors}
-            showName
-            onChange={(patch) => setDraft((d) => (d ? { ...d, ...patch } : d))}
-            firstFieldRef={firstField}
-          />
-          {failure ? (
-            <p className="dialog-error" role="alert">
-              没能创建：{failure}
-            </p>
-          ) : null}
-          <footer className="form-actions">
+          {/* 只有中间滚动：窗口矮时标题、关闭和底部按钮始终可见 */}
+          <div className="dialog-body">
+            <PresetForm
+              draft={draft}
+              errors={errors}
+              showName
+              onChange={(patch) => setDraft((d) => (d ? { ...d, ...patch } : d))}
+              firstFieldRef={firstField}
+            />
+            {failure ? (
+              <p className="dialog-error" role="alert">
+                没能创建：{failure}
+              </p>
+            ) : null}
+          </div>
+          <footer className="form-actions dialog-foot">
             <button type="button" className="button-outline" onClick={onClose}>
               取消
             </button>
