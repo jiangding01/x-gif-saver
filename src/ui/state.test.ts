@@ -186,6 +186,16 @@ describe('目标体积（M2-4）', () => {
     );
   });
 
+  it('上限按设置页的 MB 显示，不换算成 KB', () => {
+    const task = apply(
+      createTask(R, [source('A')]),
+      withTarget(121 * 1024, 63, { limit: 0.1 * MB, met: false, degraded: true }),
+    );
+    expect(viewOf(task).label).toBe(
+      '已保存 121KB · 240×240 · 10fps · 63 色（未能压到 0.1MB 以内）',
+    );
+  });
+
   it('压不下来：明确提示未能压到上限以内', () => {
     const task = apply(
       createTask(R, [source('A')]),

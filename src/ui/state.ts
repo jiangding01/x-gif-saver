@@ -2,6 +2,7 @@
 // 纯函数：消息 → 任务状态 → 按钮视图，content script 只负责路由与定时器，便于单测。
 
 import type { ToContent } from '../core/messages';
+import { toMB } from '../core/presets';
 import type { FinalParams, GifSource, JobStage } from '../core/types';
 
 export type JobPhase = 'queued' | 'running' | 'done' | 'error';
@@ -137,7 +138,8 @@ const targetNote = (params: FinalParams[]): string => {
   const targets = params.map((p) => p.target).filter((t) => t !== undefined);
   const [first] = targets;
   if (!first) return '';
-  const limit = formatBytes(first.limit);
+  // 按设置页填写的单位显示（0.1MB 不写成 102KB）
+  const limit = `${toMB(first.limit)}MB`;
   const missed = targets.filter((t) => !t.met).length;
   if (missed > 0) {
     return params.length > 1
