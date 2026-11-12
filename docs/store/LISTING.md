@@ -73,14 +73,14 @@ Not affiliated with or endorsed by X Corp.
 
 ### 其他字段
 
-| 字段     | 填写                                                |
-| -------- | --------------------------------------------------- |
-| 类别     | 工具（Tools）                                       |
-| 语言     | English（默认）和简体中文，各填对应语言的介绍       |
-| 官方网址 | 不填（需要先在 Search Console 验证域名）            |
-| 主页网址 | `https://github.com/jiangding01/x-gif-saver`        |
-| 支持网址 | `https://github.com/jiangding01/x-gif-saver/issues` |
-| 成人内容 | 否                                                  |
+| 字段     | 填写                                                                                                                        |
+| -------- | --------------------------------------------------------------------------------------------------------------------------- |
+| 类别     | 工具（Tools）                                                                                                               |
+| 语言     | English（默认，由 manifest 的 `default_locale` 决定）和简体中文，各填对应语言的介绍；名称和简短说明从安装包读取，不在后台填 |
+| 官方网址 | 不填（需要先在 Search Console 验证域名）                                                                                    |
+| 主页网址 | `https://github.com/jiangding01/x-gif-saver`                                                                                |
+| 支持网址 | `https://github.com/jiangding01/x-gif-saver/issues`                                                                         |
+| 成人内容 | 否                                                                                                                          |
 
 ## 2. 隐私权（Privacy practices）
 
@@ -126,7 +126,7 @@ x.com and twitter.com: the content script finds tweets that contain a GIF, adds 
 
 ### 远程代码（Remote code）
 
-选「否，我未使用远程代码」。所有 JS 都打在包内；从 `video.twimg.com` 下载的只是 MP4 视频数据，不执行。
+2026-11-12 首次提交时，隐私权页面没有这一项（MV3 本身禁止远程代码）。如果以后出现，选「否，我未使用远程代码」：所有 JS 都打在包内，从 `video.twimg.com` 下载的只是 MP4 视频数据，不执行；包里没有 `eval`、`new Function`、`importScripts`。
 
 ### 数据使用（Data usage）
 
@@ -142,8 +142,6 @@ x.com and twitter.com: the content script finds tweets that contain a GIF, adds 
 https://github.com/jiangding01/x-gif-saver/blob/main/PRIVACY.md
 ```
 
-PR 合入 main 后这个链接才能打开，提交审核前先点一下确认。
-
 ## 3. 分发（Distribution）
 
 | 字段     | 填写                                                     |
@@ -152,14 +150,42 @@ PR 合入 main 后这个链接才能打开，提交审核前先点一下确认�
 | 可见范围 | 首发选「不公开」（Unlisted），自己装一遍验收后改「公开」 |
 | 地区     | 所有地区                                                 |
 
+提交时勾选「通过审核后自动发布」：可见范围是「不公开」，自动发布后也只有拿到链接的人能装。不勾选的话，审核通过后要在 30 天内手动发布，否则过期。
+
+## 3.1 测试说明（Test instructions）
+
+左侧「访问权限 → 测试说明」，给审核员一条可走通的测试路径，避免因找不到带 GIF 的推文而拒审。示例推文是作者自己的，审核期间要保持公开、不要删除：
+
+```text
+How to test:
+1. Open a post that contains a GIF, for example https://x.com/jiangding01/status/2120495755576393921 (signing in to X may be required to view posts).
+2. In the post's action bar, click the "Save GIF" button (download icon labeled GIF, next to the share button). The GIF is converted locally and saved to Downloads/X-GIF/ as a .gif file.
+3. Right-click the same button to pick a different preset for one download.
+4. Click the extension's toolbar icon to open the settings page (presets, folder and file name).
+
+No account, API key or server is needed by the extension itself. All conversion happens locally in the browser.
+```
+
+## 3.2 开发者账号设置
+
+账号级设置（后台一级菜单「设置」），没完成时提交会被拦住：
+
+| 字段         | 填写                                                                             |
+| ------------ | -------------------------------------------------------------------------------- |
+| 联系邮箱     | 必填并完成邮件验证，审核结果和政策通知都发到这里                                 |
+| 交易者声明   | 非交易者（个人免费插件）                                                         |
+| 地址         | 不填：会公开显示在商店页上，非交易者不要求；只有后台明确要求时再考虑             |
+| 商品支持     | 关闭：支持入口统一用 GitHub Issues                                               |
+| 通知（邮箱） | 开启「商品审核已完成」「产品已预演」「产品已发布」；「已收到商品支持问题」不用开 |
+
 ## 4. 素材
 
-| 素材     | 规格                        | 状态                                                                                              |
-| -------- | --------------------------- | ------------------------------------------------------------------------------------------------- |
-| 商店图标 | 128×128 PNG                 | 已有 `public/icons/icon128.png`                                                                   |
-| 截图     | 1280×800 或 640×400，1–5 张 | 已有 `docs/store/screenshots/{1..4}-*-{en,zh}.png`，按序号顺序上传，中英文列表各传对应语言的 4 张 |
-| 小宣传图 | 440×280                     | 已有 `docs/store/promo/small-tile-{en,zh}.png`，中英文列表各传对应的一张                          |
-| 大宣传图 | 1400×560                    | 可选                                                                                              |
+| 素材     | 规格                        | 状态                                                                                                                                                                       |
+| -------- | --------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 商店图标 | 128×128 PNG                 | 已有 `public/icons/icon128.png`                                                                                                                                            |
+| 截图     | 1280×800 或 640×400，1–5 张 | 已有 `docs/store/screenshots/{1..4}-*-{en,zh}.png`，按序号顺序上传：「以当地语言显示的屏幕截图」中英文列表各传对应语言的 4 张；「全球通用的屏幕截图」是必填项，传英文 4 张 |
+| 小宣传图 | 440×280                     | 全语言共用，不能按语言分别上传，用 `docs/store/promo/small-tile-en.png`；中文版 `small-tile-zh.png` 留作备用                                                               |
+| 大宣传图 | 1400×560                    | 可选                                                                                                                                                                       |
 
 小宣传图和截图都用 HTML 排版后导出，运行 `node scripts/render-promo.mjs` 一次导出全部 PNG（不带透明通道，符合商店要求），首次运行前先 `pnpm exec playwright install chromium`：
 
